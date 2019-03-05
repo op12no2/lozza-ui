@@ -5,6 +5,9 @@ This is a sister project to my Javascript chess engine [Lozza](https://github.co
 ## Dependencies
 
 [chessboard.js](https://github.com/oakmac/chessboardjs/)
+
 [chess.js](https://github.com/jhlywa/chess.js)
+
 [bootstrap](https://github.com/twbs)
+
 [jquery](https://github.com/jquery/jquery)
