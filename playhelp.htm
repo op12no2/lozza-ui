@@ -4,7 +4,7 @@
 
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
 <meta http-equiv="content-type"    content="text/html; charset=UTF-8" />
-<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 
 <title>javascript chess engine</title>
 
@@ -14,57 +14,52 @@
 <meta name="viewport"    content="width=device-width, initial-scale=1, maximum-scale=1">
 
 <link rel="stylesheet" type="text/css" media="screen" href="/toys/assets/bootstrap3/css/bootstrap.min.css" />
-<link rel="stylesheet" type="text/css" media="screen" href="css/chessboard-0.3.0.css" />
 
 <style>
 body   {padding: 20px;}
-#board {width: 100%; max-width: 350px;}
-#stats {font-weight: bold;}
-#moves {font-weight: bold;}
 </style>
-
-<script src="/toys//assets/jquery-ui-1.8.24/js/jquery-1.8.2.min.js"></script>
-<script src="/toys/assets/bootstrap3/js/bootstrap.min.js"></script>
-<script src="js/chessboard-0.3.0.js"></script>
-<script src="js/chess.js"></script>
-<script src="lozuilib.js"></script>
-<script src="play.js"></script>
 
 </head>
 
 <body>
 
-<p>
-<a class="btn btn-success" href="index.htm">Lozza home</a>
-<a class="btn btn-info"    href="http://op12no2.me/lozza-play-ui/">Help</a>
-</p>
+<p>No proper time controls. 
+Lozza takes N seconds to move as specified by you in the text field above the board.
+The default is 1 second. You can change the value at any time during the game.
 
-<p>
-<div class="btn-group">
-  <button type="button" class="btn btn-primary">Play</button>
-  <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-    <span class="caret"></span>
-    <span class="sr-only">Toggle Dropdown</span>
-  </button>
-  <ul class="dropdown-menu">
-    <li><a id="playw" href="#">With white pieces</a></li>
-    <li><a id="playb" href="#">With black pieces</a></li>
-  </ul>
-</div>
+<p>Optional URL parameters
 
-<a id="analyse" class="btn btn-danger" href="">Analyse</a>
+<p>h=y
 
-<input data-toggle="tooltip" data-placement="bottom"title="the number of seconds the engine takes to move" type="text" value="1" id="permove" size=3 />
-</p>
+<p>Hide Lozza’s workings other than announcements of mate and the info above the board.
 
-<p id="stats">
-</p>
+<p>c=b
 
-<p id="board"></p>
+<p>You play black. Default is you play white.
 
-<p id="moves"></p>
-<p id="info"></p>
+<p>t=secondspermove
 
+<p>Lozza uses specified number of seconds to make her moves. Default is 1. For example to play at 10 seconds per move and you play black use:-
+
+<p>https://op12no2.github.io/lozza-ui/play.htm?t=10&c=b
+
+<p>fen=FEN
+
+<p>Use the specified FEN string to start the game from. The default is the standard start position.
+
+<p>m=ucigocommand
+
+<p>Lozza uses the UCI go command to make her move rather than the fixed time. For example to ask Lozza to search to a depth of 2 ply only use:-
+
+<p>https://op12no2.github.io/lozza-ui/play.htm?m=go depth 2
+
+<p>Another example, to ask Lozza to make her move after searching 100000 nodes, use:-
+
+<p>https://op12no2.github.io/lozza-ui/play.htm?m=go nodes 100000
+
+<p>This can also be used to play with a fixed move time of less than 1 second, for example to make Lozza move after 200ms use:-
+
+https://op12no2.github.io/lozza-ui/play.htm?m=go movetime 200
 </body>
 </html>
 
