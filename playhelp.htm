@@ -13,7 +13,7 @@
 <meta name="keywords"    content="chess, javascript, lozza" />
 <meta name="viewport"    content="width=device-width, initial-scale=1, maximum-scale=1">
 
-<link rel="stylesheet" type="text/css" media="screen" href="/toys/assets/bootstrap3/css/bootstrap.min.css" />
+<link rel="stylesheet" type="text/css" media="screen" href="bootstrap3/css/bootstrap.min.css" />
 
 <style>
 body   {padding: 20px;}
@@ -27,29 +27,31 @@ body   {padding: 20px;}
 Lozza takes N seconds to move as specified by you in the text field above the board.
 The default is 1 second. You can change the value at any time during the game.
 
-<p>Optional URL parameters
+  <h3>Optional URL parameters</h3>
 
-<p>h=y
+  <p><b>h=y</b>
 
 <p>Hide Lozza’s workings other than announcements of mate and the info above the board.
 
-<p>c=b
+  <p><b>c=b</b>
 
 <p>You play black. Default is you play white.
 
-<p>t=secondspermove
+  <p><b>t=<i>secondspermove</i></b>
 
-<p>Lozza uses specified number of seconds to make her moves. Default is 1. For example to play at 10 seconds per move and you play black use:-
+<p>Lozza uses specified number of seconds to make her moves. Default is 1. 
+  For example to play at 10 seconds per move and you play black use:-
 
 <p>https://op12no2.github.io/lozza-ui/play.htm?t=10&c=b
 
-<p>fen=FEN
+  <p><b>fen=<i>fen</i></b>
 
 <p>Use the specified FEN string to start the game from. The default is the standard start position.
 
-<p>m=ucigocommand
+  <p><b>m=<i>ucigocommand</i></b>
 
-<p>Lozza uses the UCI go command to make her move rather than the fixed time. For example to ask Lozza to search to a depth of 2 ply only use:-
+<p>Lozza uses the UCI go command to make her move rather than the fixed time. 
+  For example to ask Lozza to search to a depth of 2 ply only use:-
 
 <p>https://op12no2.github.io/lozza-ui/play.htm?m=go depth 2
 
