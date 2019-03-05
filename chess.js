@@ -1,4 +1,4 @@
-'use strict';
+
 /*
  * Copyright (c) 2014, Jeff Hlywa (jhlywa@gmail.com)
  * All rights reserved.
