@@ -92,7 +92,7 @@ function timer() {
 $(function() {
 
   $('#stats').html('Loading EPD data from server...');
-  $.get('epd/matein1.txt', function(data) {
+  $.get('matein1.txt', function(data) {
     data = data.trim();
     data = data.replace(/\r/g,'');
     epds = data.split('\n');
