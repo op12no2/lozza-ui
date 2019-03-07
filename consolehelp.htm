@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta http-equiv="content-type"    content="text/html; charset=UTF-8" />
+<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+
+<title>javascript chess engine</title>
+
+<meta name="title"       content="javascript chess engine" />
+<meta name="description" content="lozza - a javascript chess engine" />
+<meta name="keywords"    content="chess, javascript, lozza" />
+<meta name="viewport"    content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="stylesheet" type="text/css" media="screen" href="bootstrap3/css/bootstrap.min.css" />
+
+
+<style>
+body {padding: 20px;}
+</style>
+
+
+</head>
+
+<body>
+
+<p>This Lozza UI allows you to type UCI commands in a console-like manner.</p>
+<p><b>COMMAND EXTENSIONS</b></p>
+<p>In addition to the standard UCI protocol, the following commands can be used:-</p>
+<p><b>stop</b></p>
+<p>Stop the Lozza engine. Useful to stop a long perft or analysis. What actually happens is that the web worker containing Lozza is killed. You'll need to restart one.</p>
+<p><b>start</b></p>
+<p>Start Lozza. i.e. create a new web worker containing the Lozza. After a start the following are automatically sent:-</p>
+<p>uci<br />ucinewgame<br />position startpos<br />board</p>
+<p>A start command is issued when the console UI starts.</p>
+<p><b>clear</b></p>
+<p>Clear the previous output.</p>
+<p><b>board</b></p>
+<p>Display a textual FEN and graphical representation of the current position.</p>
+<p><b>perft</b> depth d [moves m] [inner 1|0]</p>
+<p>Perform a perft analysis to a depth of d ply based on the current position. m is the expected number of moves and is optional, defaulting to 0. inner 1 will show inner node counts with the default being inner 0</p>
+<p><b>eval</b></p>
+<p>Show how the static evaluation of the current position is constructed.</p>
+<p><b>id</b> idstring</p>
+<p>Attach an identification label to the current position. Only relevant if UCI debugging is on.</p>
+<p><b>ping</b></p>
+<p>Check that the engine is alive.</p>
+<p><b>SHORTCUTS</b></p>
+<p><b>u</b> == ucinewgame</p>
+<p><b>q</b> == quit</p>
+<p><b>p</b> == position</p>
+<p><b>p s</b> == position startpos</p>
+<p><b>g</b> == go</p>
+<p><b>g d</b> = go depth</p>
+<p><b>b</b> == board</p>
+<p><b>NOTES</b></p>
+<p>An explicit ucinewgame is needed to reset the transposition tables; and is required before the first position. It is optional during a game since it has no effect other than to clear the TT.</p>
+<p>Lozza plays it's best move when a go command completes, changing the current position.</p>
+<p>The current position is unchanged after a perft</p>
+<p>The start, stop and clear commands are not be available when using Lozza offline; for example with node.js. Similarly only the textual board representation is shown.</p>
+</body>
+</html>
+
