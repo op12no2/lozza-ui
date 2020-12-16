@@ -17,7 +17,7 @@ function initRandom() {
   var d = new Date();
   var t = d.getTime();
   var m = t % 1000;
-  for (var i=0 i<m; i++)
+  for (var i=0; i<m; i++)
     var r = Math.random();
 }
 
