@@ -173,7 +173,8 @@ $(function() {
   $('#playw').click(function() {
   
     window.location = lozMakeURL ({
-      t : getMoveTime()
+      t : getMoveTime(),
+      h : args.h
     });
   
     return true;
@@ -183,7 +184,8 @@ $(function() {
   
     window.location = lozMakeURL ({
       t : getMoveTime(),
-      c : 'b'
+      c : 'b',
+      h : args.h
     });
   
     return true;
