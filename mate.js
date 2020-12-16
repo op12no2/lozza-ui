@@ -13,6 +13,14 @@ var timeHandle = 0;
 var goes       = 10;
 var right      = 0;
 
+function initRandom() {
+  var d = new Date();
+  var t = d.getTime();
+  var m = t % 1000;
+  for (var i=0 i<m; i++)
+    var r = Math.random();
+}
+
 function another () {
 
   var epd  = epds[Math.random() * epds.length | 0];
@@ -92,6 +100,8 @@ function timer() {
 
 $(function() {
 
+  initRandom();
+  
   $('#stats').html('Loading EPD data from server...');
   $.get('matein1.txt', function(data) {
     data = data.trim();
