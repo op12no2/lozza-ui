@@ -31,7 +31,8 @@ function another () {
   else
     board.orientation('black');
 
-  $('#info').html('<a target = "_blank" title="click to analyse in a new tab" href="fen.htm?act=ana&fen=' + epd + '">' + epd + '</a><br>');
+  //$('#info').html('<a target = "_blank" title="click to analyse in a new tab" href="fen.htm?act=ana&fen=' + epd + '">' + epd + '</a><br>');
+  $('#info').html('<br>');
 }
 
 var onDrop = function(source, target, piece, newPos, oldPos, orientation) {
