@@ -1,6 +1,6 @@
 ## Lozza User Interfaces
 
-This is a sister project to my Javascript chess engine [Lozza](https://github.com/op12no2/lozza), providing example web interfaces. 
+This is a sister project to my Javascript chess engine Lozza https://github.com/op12no2/lozza, providing example web interfaces. 
 
 You can try them here:-
 
