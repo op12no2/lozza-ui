@@ -1,11 +1,14 @@
 
-// http://op12no2.me/toys/lozza
+// https://github.com/op12no2
 
 var BUILD = "1.18";
 
 //{{{  history
 /*
 
+1.18 Don't move king adjacent to king.
+1.18 Fix black king endgame PST.
+1.18 Fix tapered eval calc.
 1.18 Fix alpha/beta mate predicates.
 1.18 Fix trapped knights bug (thanks Tamas).
 1.18 Fix hash table put bug.
@@ -717,6 +720,8 @@ var IS_O      = [0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0];
 var IS_E      = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 var IS_OE     = [1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0];
 var IS_KN     = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];
+var IS_K      = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0];
+var IS_N      = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
 var IS_P      = [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
 
 var IS_NBRQKE = [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0]
@@ -1055,7 +1060,7 @@ var WKING_PSTE =      [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                        0,   0, -24,   0,  12,  24,  24,  12,   0, -24,   0,   0,
                        0,   0, -36, -12,   0,  12,  12,   0, -12, -36,   0,   0,
                        0,   0, -48, -24, -12,   0,   0, -12, -24, -48,   0,   0,
-                       0,   0, -72, -48, -36, -24, -24, -36, -38, -72,   0,   0,
+                       0,   0, -72, -48, -36, -24, -24, -36, -48, -72,   0,   0,
                        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
 
@@ -2845,6 +2850,7 @@ lozBoard.prototype.genMoves = function(node, turn) {
     var pPromoteRank = 7;
     var rights       = this.rights & WHITE_RIGHTS;
     var pList        = this.wList;
+    var theirKingSq  = this.bList[0];
     var pCount       = this.wCount;
     var CAPTURE      = IS_B;
   
@@ -2867,6 +2873,7 @@ lozBoard.prototype.genMoves = function(node, turn) {
     var pPromoteRank = 2;
     var rights       = this.rights & BLACK_RIGHTS;
     var pList        = this.bList;
+    var theirKingSq  = this.wList[0];
     var pCount       = this.bCount;
     var CAPTURE      = IS_W;
   
@@ -2961,8 +2968,8 @@ lozBoard.prototype.genMoves = function(node, turn) {
       //}}}
     }
 
-    else if (IS_KN[frObj]) {
-      //{{{  KN
+    else if (IS_N[frObj]) {
+      //{{{  N
       
       var offsets = OFFSETS[frPiece];
       var dir     = 0;
@@ -2976,6 +2983,28 @@ lozBoard.prototype.genMoves = function(node, turn) {
           node.addSlide(frMove | to);
         else if (CAPTURE[toObj])
           node.addCapture(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      }
+      
+      //}}}
+    }
+
+    else if (IS_K[frObj]) {
+      //{{{  K
+      
+      var offsets = OFFSETS[frPiece];
+      var dir     = 0;
+      
+      while (dir < 8) {
+      
+        to    = fr + offsets[dir++];
+        toObj = b[to];
+      
+        if (DIST[to][theirKingSq] > 1) {
+          if (!toObj)
+            node.addSlide(frMove | to);
+          else if (CAPTURE[toObj])
+            node.addCapture(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+        }
       }
       
       //}}}
@@ -3038,6 +3067,7 @@ lozBoard.prototype.genEvasions = function(node, turn) {
     var pCount       = this.wCount;
     var ray          = STARRAY[this.wList[0]];
     var myKing       = W_KING;
+    var theirKingSq  = this.bList[0];
   }
   
   else {
@@ -3051,6 +3081,7 @@ lozBoard.prototype.genEvasions = function(node, turn) {
     var pCount       = this.bCount;
     var ray          = STARRAY[this.bList[0]];
     var myKing       = B_KING;
+    var theirKingSq  = this.wList[0];
   }
   
   //}}}
@@ -3153,7 +3184,7 @@ lozBoard.prototype.genEvasions = function(node, turn) {
           var rayTo = ray[to];
       
           if (toObj == NULL) {
-            if (frObj == myKing || (rayTo > 0 && (rayTo != rayFrom) && !CORNERS[to]))
+            if ((frObj == myKing && DIST[to][theirKingSq] > 1) || ((rayTo > 0 && (rayTo != rayFrom) && !CORNERS[to])))
               node.addSlide(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
       
             continue;
@@ -3198,6 +3229,7 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     var pOffsetDiag2 = WP_OFFSET_DIAG2;
     var pPromoteRank = 7;
     var pList        = this.wList;
+    var theirKingSq  = this.bList[0];
     var pCount       = this.wCount;
     var CAPTURE      = IS_B;
   }
@@ -3209,6 +3241,7 @@ lozBoard.prototype.genQMoves = function(node, turn) {
     var pOffsetDiag2 = BP_OFFSET_DIAG2;
     var pPromoteRank = 2;
     var pList        = this.bList;
+    var theirKingSq  = this.wList[0];
     var pCount       = this.bCount;
     var CAPTURE      = IS_W;
   }
@@ -3283,8 +3316,8 @@ lozBoard.prototype.genQMoves = function(node, turn) {
       //}}}
     }
 
-    else if (IS_KN[frObj]) {
-      //{{{  KN
+    else if (IS_N[frObj]) {
+      //{{{  N
       
       var offsets = OFFSETS[frPiece];
       var dir     = 0;
@@ -3295,6 +3328,24 @@ lozBoard.prototype.genQMoves = function(node, turn) {
         toObj = b[to];
       
         if (CAPTURE[toObj])
+          node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
+      }
+      
+      //}}}
+    }
+
+    else if (IS_K[frObj]) {
+      //{{{  K
+      
+      var offsets = OFFSETS[frPiece];
+      var dir     = 0;
+      
+      while (dir < 8) {
+      
+        to    = fr + offsets[dir++];
+        toObj = b[to];
+      
+        if (CAPTURE[toObj] && DIST[to][theirKingSq] > 1)
           node.addQMove(frMove | (toObj << MOVE_TOOBJ_BITS) | to);
       }
       
@@ -5368,7 +5419,8 @@ lozBoard.prototype.evaluate = function (turn) {
   evalS += kingS;
   evalE += kingE;
   
-  var e = ((evalS * (256 - this.gPhase)) + (evalE * this.gPhase)) >> 8;
+  //var e = ((evalS * (256 - this.gPhase)) + (evalE * this.gPhase)) >> 8;
+  var e = (evalS * ((256 - this.gPhase) / 256) | 0) + (evalE * ((this.gPhase) / 256) | 0);
   
   //}}}
   //{{{  verbose
