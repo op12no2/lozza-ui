@@ -6335,7 +6335,7 @@ function lozUCI () {
 
 lozUCI.prototype.post = function (s) {
 
-  if (lozzaHost == HOST_NODEJS)          // or jxCore.
+  if (lozzaHost == HOST_NODEJS)
     this.nodefs.writeSync(1, s + '\n');
 
   else if (lozzaHost == HOST_JSUCI)
@@ -6678,13 +6678,13 @@ onmessage = function(e) {
 //}}}
 
 //if (lozzaHost == HOST_NODEJS) {
-  //%NeverOptimizeFunction(lozBoard.prototype.ttInit);
+  //%NeverOptimizeFunction(lozBoard.prototype.ttInit);  // can be uncommented if using google chrome browser
 //}
 
 var lozza         = new lozChess()
 lozza.board.lozza = lozza;
 
-//{{{  node.js
+//{{{  node interface
 
 if (lozzaHost == HOST_NODEJS) {
 
