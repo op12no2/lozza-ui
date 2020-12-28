@@ -6,6 +6,7 @@ var BUILD = "1.19.drawish3";
 //{{{  history
 /*
 
+1.19 Add mistake command and code
 1.19 Play UI: add levels etc.
 1.19 In web mode don't send some of the UCI crap.
 1.19 Reduce eval if no pawns and close in material.
@@ -1330,9 +1331,10 @@ function lozChess () {
     this.nodes[i].root = i == 0;
   }
 
-  this.board = new lozBoard();
-  this.stats = new lozStats();
-  this.uci   = new lozUCI();
+  this.board    = new lozBoard();
+  this.stats    = new lozStats();
+  this.uci      = new lozUCI();
+  this.mistakes = 0;
 
   this.rootNode = this.nodes[0];
 
@@ -1487,8 +1489,9 @@ lozChess.prototype.init = function () {
     this.nodes[i].init();
 
   this.board.init();
-  this.stats.init();
-}
+  this.stats.init()}
+
+  this.mistakes = 0;
 
 //}}}
 //{{{  .newGameInit
@@ -1497,6 +1500,7 @@ lozChess.prototype.newGameInit = function () {
 
   this.board.ttInit();
   this.uci.numMoves = 0;
+  this.mistakes = 0;
 }
 
 //}}}
@@ -1755,6 +1759,19 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     if (this.stats.timeOut) {
       return;
     }
+
+    //{{{  make mistakes?
+    
+    if (this.mistakes) {
+      if (Math.random() <= 1.0/(this.uci.spec.depth * this.uci.spec.depth)) {
+        var mm = Math.random() + Math.random();
+        //this.uci.debug('mistake',this.uci.spec.depth,depth,score,mm);
+        score = score * mm | 0;
+        //this.uci.debug(score);
+      }
+    }
+    
+    //}}}
 
     if (score > bestScore) {
       if (score > alpha) {
@@ -6629,6 +6646,15 @@ onmessage = function(e) {
       //{{{  ucinewgame
       
       lozza.newGameInit();
+      
+      break;
+      
+      //}}}
+
+    case 'mistakes':
+      //{{{  mistakes
+      
+      lozza.mistakes = 1;
       
       break;
       

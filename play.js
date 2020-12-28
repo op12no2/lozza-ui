@@ -45,8 +45,8 @@ function lozUpdateBestMove () {
 
 function lozUpdatePV () {
 
-  //if (args.h != "y" && lozData.units == 'cp')
-    //$(lozData.idInfo).prepend('depth ' + lozData.depth + ' (' + lozData.score + ') ' + lozData.pv + '<br>');
+  if (lozData.units == 'cp')
+    $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (' + lozData.score + ') ' + lozData.pv + '<br>');
   if (lozData.score > 0 && lozData.units != 'cp')
     $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (<b>mate in ' + lozData.score + '</b>) ' + lozData.pv + '<br>');
   else if (lozData.units != 'cp')
@@ -154,31 +154,27 @@ function getLevel () {
 //{{{  postGo
 
 function postGo () {
+
   var go = '';
+
+  if (level < 1)
+    level = 1;
+
   if (args.m)
     go = args.m;
-  else {
-    if (level == 1)
-      go = 'go depth 1';
-    else if (level == 2)
-      go = 'go depth 2';
-    else if (level == 3)
-      go = 'go depth 3';
-    else if (level == 4)
-      go = 'go depth 4';
-    else if (level == 5)
-      go = 'go depth 5';
-    else if (level == 6)
-      go = 'go depth 6';
-    else if (level == 7)
-      go = 'go depth 7';
-    else if (level == 8)
-      go = 'go depth 8';
-    else if (level == 9)
-      go = 'go movetime 1000';
-    else if (level == 10)
-      go = 'go movetime 10000';
+
+  else if (level < 9) {
+    engine.postMessage('debug off')
+    engine.postMessage('mistakes')
+    go = 'go depth ' + level;
   }
+  else if (level == 9)
+      go = 'go movetime 1000';
+
+  else if (level >= 10)
+      go = 'go movetime 10000';
+
+
   $('#strength').html('Strength (' + level + ')'); //jic
   engine.postMessage(go);
   //console.log(go);
