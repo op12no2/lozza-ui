@@ -59,14 +59,14 @@ laptop rather than a phone.
 <p>Use the specified FEN string to start the game from. The default is the standard start position.
 
 <p><b>m=<i>ucigocommand</i></b>
-<p>Lozza uses the UCI go command to make her move rather than the fixed time. For example to ask Lozza
+<p>Lozza uses the given UCI go command to make her move rather than that for the selected level. For example to ask Lozza
 to search to a depth of 2 ply only use:-
 <p>https://op12no2.github.io/lozza-ui/play.htm?m=go depth 2
 <p>Another example, to ask Lozza to make her move after searching 100000 nodes, use:-
 <p>https://op12no2.github.io/lozza-ui/play.htm?m=go nodes 100000
-<p>This can also be used to play with a fixed move time of less than 1 second, for example to make Lozza move after 200ms use:-
+<p>To make Lozza move after a certain time, e.g. 200ms use:-
 <p>https://op12no2.github.io/lozza-ui/play.htm?m=go movetime 200
-
+<p>When the m parameter is present the strength menu has no effect.
 <p><a href="https://op12no2.github.io/lozza-ui">Lozza Chess</a>
 
 </body>
