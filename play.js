@@ -47,8 +47,8 @@ function lozUpdateBestMove () {
 
 function lozUpdatePV () {
 
-  if (lozData.units == 'cp')
-    $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (' + lozData.score + ') ' + lozData.pv + '<br>');
+  //if (lozData.units == 'cp')
+    //$(lozData.idInfo).prepend('depth ' + lozData.depth + ' (' + lozData.score + ') ' + lozData.pv + '<br>');
   if (lozData.score > 0 && lozData.units != 'cp')
     $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (<b>mate in ' + lozData.score + '</b>) ' + lozData.pv + '<br>');
   else if (lozData.units != 'cp')
