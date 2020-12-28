@@ -1,11 +1,13 @@
 
 // https://github.com/op12no2
 
-var BUILD = "1.19 (workinprogress)";
+var BUILD = "1.19.drawish3";
 
 //{{{  history
 /*
 
+1.19 Play UI: add levels etc.
+1.19 In web mode don't send some of the UCI crap.
 1.19 Reduce eval if no pawns and close in material.
 1.19 Feather off eval as we get close to 50 move rule.
 
@@ -6659,11 +6661,15 @@ onmessage = function(e) {
     case 'uci':
       //{{{  uci
       
-      uci.send('id name Lozza',BUILD);
-      uci.send('id author Colin Jenkins');
-      uci.send('option');
-      uci.send('uciok');
-      
+      if (lozzaHost != HOST_WEB) {
+        uci.send('id name Lozza',BUILD);
+        uci.send('id author Colin Jenkins');
+        uci.send('option');
+        uci.send('uciok');
+      }
+      else {
+        uci.send('Welcome to Lozza chess!');
+      }
       break;
       
       //}}}

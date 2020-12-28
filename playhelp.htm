@@ -22,45 +22,36 @@ body   {padding: 20px;}
 </head>
 
 <body>
-  <h3>Play UI</h3>
-<p>No proper time controls. 
-Lozza takes N seconds to move as specified by you in the text field above the board.
-The default is 1 second. You can change the value at any time during the game.
 
-  <h3>Optional URL parameters</h3>
+<h3>Play UI</h3>
+<p>
+Play a game of chess against Lozza Chess. By default you will be playing with the
+white pieces. Use the Play menu to change colour and start a new game.
+<p>
+You can change the strength of Lozza at and time - including during a game - by using
+the Strength menu.
+<p>
+The Analyse button open a new web page allowing you to analyse the current position.
+Both web page will be active.
 
-  <p><b>h=y</b>
+<h3>Optional URL parameters</h3>
 
-<p>Hide Lozza’s workings other than announcements of mate and the info above the board.
-
-  <p><b>c=b</b>
-
+<p><b>c=b</b>
 <p>You play black. Default is you play white.
 
-  <p><b>t=<i>secondspermove</i></b>
+<p><b>l=<i>1 to 10</i></b>
+<p>Sets the initial strength.  Default is level 1 (<i>l=1</i>)
 
-<p>Lozza uses specified number of seconds to make her moves. Default is 1. 
-  For example to play at 10 seconds per move and you play black use:-
-
-<p>https://op12no2.github.io/lozza-ui/play.htm?t=10&c=b
-
-  <p><b>fen=<i>fen</i></b>
-
+<p><b>fen=<i>fen</i></b>
 <p>Use the specified FEN string to start the game from. The default is the standard start position.
 
-  <p><b>m=<i>ucigocommand</i></b>
-
-<p>Lozza uses the UCI go command to make her move rather than the fixed time. 
-  For example to ask Lozza to search to a depth of 2 ply only use:-
-
+<p><b>m=<i>ucigocommand</i></b>
+<p>Lozza uses the UCI go command to make her move rather than the fixed time. For example to ask Lozza
+to search to a depth of 2 ply only use:-
 <p>https://op12no2.github.io/lozza-ui/play.htm?m=go depth 2
-
 <p>Another example, to ask Lozza to make her move after searching 100000 nodes, use:-
-
 <p>https://op12no2.github.io/lozza-ui/play.htm?m=go nodes 100000
-
 <p>This can also be used to play with a fixed move time of less than 1 second, for example to make Lozza move after 200ms use:-
-
 <p>https://op12no2.github.io/lozza-ui/play.htm?m=go movetime 200
 
   </body>

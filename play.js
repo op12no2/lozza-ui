@@ -11,6 +11,7 @@ var drag        = true;
 var engine      = null;
 var startFrom   = 'startpos';
 var startFromUI = 'start';
+var level       = 1;
 
 lozData.page    = 'play.htm';
 lozData.idInfo  = '#info';
@@ -44,9 +45,9 @@ function lozUpdateBestMove () {
 
 function lozUpdatePV () {
 
-  if (args.h != "y" && lozData.units == 'cp')
-    $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (' + lozData.score + ') ' + lozData.pv + '<br>');
-  else if (lozData.score > 0 && lozData.units != 'cp')
+  //if (args.h != "y" && lozData.units == 'cp')
+    //$(lozData.idInfo).prepend('depth ' + lozData.depth + ' (' + lozData.score + ') ' + lozData.pv + '<br>');
+  if (lozData.score > 0 && lozData.units != 'cp')
     $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (<b>mate in ' + lozData.score + '</b>) ' + lozData.pv + '<br>');
   else if (lozData.units != 'cp')
     $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (<b>checkmate</b>) ' + lozData.pv + '<br>');
@@ -79,12 +80,8 @@ var onDrop = function(source, target, piece, newPos, oldPos, orientation) {
 
   if (!chess.game_over()) {
     $(lozData.idInfo).html('');
-    var movetime = getMoveTime() * 1000;
     engine.postMessage('position ' + startFrom + ' moves ' + strMoves());
-    if (args.m)
-      engine.postMessage(args.m);
-    else
-      engine.postMessage('go movetime ' + movetime);
+    postGo();
   }
   else
     showEnd();
@@ -142,16 +139,49 @@ function showEnd () {
 }
 
 //}}}
-//{{{  getMoveTime
+//{{{  getLevel
 
-function getMoveTime () {
+function getLevel () {
 
-  var t = parseInt($('#permove').val());
-  if (t <= 0 || !t) {
-    t = 1;
-    $('#permove').val(1);
+  level = parseInt(args.l);
+  if (level <= 0)
+    level = 1;
+  if (level > 10)
+    level = 10;
+}
+
+//}}}
+//{{{  postGo
+
+function postGo () {
+  var go = '';
+  if (args.m)
+    go = args.m;
+  else {
+    if (level == 1)
+      go = 'go depth 1';
+    else if (level == 2)
+      go = 'go depth 2';
+    else if (level == 3)
+      go = 'go depth 3';
+    else if (level == 4)
+      go = 'go depth 4';
+    else if (level == 5)
+      go = 'go depth 5';
+    else if (level == 6)
+      go = 'go depth 6';
+    else if (level == 7)
+      go = 'go depth 7';
+    else if (level == 8)
+      go = 'go depth 8';
+    else if (level == 9)
+      go = 'go movetime 1000';
+    else if (level == 10)
+      go = 'go movetime 10000';
   }
-  return t;
+  $('#strength').html('Strength (' + level + ')'); //jic
+  engine.postMessage(go);
+  //console.log(go);
 }
 
 //}}}
@@ -160,12 +190,9 @@ $(function() {
 
   //{{{  init DOM
   
-  if (args.t) {
-    $('#permove').val(args.t);
-    getMoveTime();
+  if (args.l) {
+    getLevel();
   }
-  
-  $('input').tooltip({delay: {"show": 1000, "hide": 100}});
   
   //}}}
   //{{{  handlers
@@ -173,8 +200,7 @@ $(function() {
   $('#playw').click(function() {
   
     window.location = lozMakeURL ({
-      t : getMoveTime(),
-      h : args.h
+      l : level
     });
   
     return true;
@@ -183,11 +209,69 @@ $(function() {
   $('#playb').click(function() {
   
     window.location = lozMakeURL ({
-      t : getMoveTime(),
-      c : 'b',
-      h : args.h
+      l : level,
+      c : 'b'
     });
   
+    return true;
+  });
+  
+  $('#level1').click(function() {
+    level=1;
+    $('#strength').html('Strength (1)');
+    return true;
+  });
+  $('#level2').click(function() {
+    level=2;
+    $('#strength').html('Strength (2)');
+    return true;
+  });
+  
+  $('#level3').click(function() {
+    level=3;
+    $('#strength').html('Strength (3)');
+    return true;
+  });
+  
+  $('#level4').click(function() {
+    level=4;
+    $('#strength').html('Strength (4)');
+    return true;
+  });
+  
+  $('#level5').click(function() {
+    level=5;
+    $('#strength').html('Strength (5)');
+    return true;
+  });
+  
+  $('#level6').click(function() {
+    level=6;
+    $('#strength').html('Strength (6)');
+    return true;
+  });
+  
+  $('#level7').click(function() {
+    level=7;
+    $('#strength').html('Strength (7)');
+    return true;
+  });
+  
+  $('#level8').click(function() {
+    level=8;
+    $('#strength').html('Strength (8)');
+    return true;
+  });
+  
+  $('#level9').click(function() {
+    level=9;
+    $('#strength').html('Strength (9)');
+    return true;
+  });
+  
+  $('#level10').click(function() {
+    level=10;
+    $('#strength').html('Strength (10)');
     return true;
   });
   
@@ -203,7 +287,6 @@ $(function() {
 
   engine           = new Worker(lozData.source);
   engine.onmessage = lozStandardRx;
-
 
   if (args.fen) {
     startFrom   = 'fen ' + args.fen;
@@ -231,7 +314,7 @@ $(function() {
   if (!args.fen && args.c == 'b' || args.fen && args.fen.search(' w') !== -1 && args.c == 'b') {
     board.orientation('black');
     engine.postMessage('position ' + startFrom);
-    engine.postMessage('go movetime ' + getMoveTime() * 1000);
+    postGo();
     $(lozData.idInfo).prepend('You are black' + '<br>');
   }
   else if (!args.fen && args.c != 'b' || args.fen && args.fen.search(' w') !== -1 && args.c != 'b') {
@@ -245,12 +328,14 @@ $(function() {
   else if (args.fen && args.fen.search(' b') !== -1 && args.c != 'b') {
     board.orientation('white');
     engine.postMessage('position ' + startFrom);
-    engine.postMessage('go movetime ' + getMoveTime() * 1000);
+    postGo();
     $(lozData.idInfo).prepend('You are white' + '<br>');
   }
   else {
     $(lozData.idInfo).prepend('INCONSISTENT ARGS' + '<br>');
   }
+  //$(lozData.idInfo).prepend('Level ' + level + '<br>');
+  $('#strength').html('Strength (' + level + ')');
 
   //console.log(args);
 
