@@ -176,7 +176,6 @@ function postGo () {
   else if (level >= 10)
       go = 'go movetime 10000';
 
-
   $('#strength').html('Strength (' + level + ')'); //jic
   engine.postMessage(go);
   //console.log(go);
