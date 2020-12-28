@@ -171,7 +171,7 @@ function postGo () {
     go = 'go depth ' + level;
   }
   else if (level == 9)
-      go = 'go movetime 1000';
+      go = 'go movetime 2000';
 
   else if (level >= 10)
       go = 'go movetime 10000';
