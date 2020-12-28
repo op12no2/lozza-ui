@@ -1,4 +1,6 @@
 
+var VER = 1.19;
+
 if (!window.Worker) {
   document.write('<p><b>DUDE, YOUR BROWSER IS TOO OLD TO PLAY CHESS!<p>TRY <a href="http://www.google.co.uk/chrome/">GOOGLE CHROME</a></a><p>');
   exit;
