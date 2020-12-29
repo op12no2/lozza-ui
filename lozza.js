@@ -1,7 +1,7 @@
 
 // https://github.com/op12no2
 
-var BUILD = "1.19.wip";
+var BUILD = "1.19.test.drawish3";
 
 //{{{  history
 /*
@@ -6654,7 +6654,7 @@ onmessage = function(e) {
     case 'mistakes':
       //{{{  mistakes
       
-      lozza.mistakes = 1;
+      lozza.mistakes = uci.getInt('mistakes',0);
       
       break;
       

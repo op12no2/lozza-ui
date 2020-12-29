@@ -165,9 +165,7 @@ function postGo () {
   if (args.m)
     go = args.m;
 
-  else if (level < 9) {
-    engine.postMessage('debug off')
-    engine.postMessage('mistakes')
+  else if (level <= 8) {
     go = 'go depth ' + level;
   }
   else if (level == 9)
@@ -177,6 +175,12 @@ function postGo () {
       go = 'go movetime 10000';
 
   $('#strength').html('Strength (' + level + ')'); //jic
+  engine.postMessage('debug off')
+  //engine.postMessage('debug on')
+  if (level <= 4)
+    engine.postMessage('mistakes 1')
+  else
+    engine.postMessage('mistakes 0')
   engine.postMessage(go);
   //console.log(go);
 }
