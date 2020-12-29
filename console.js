@@ -1,5 +1,5 @@
 
-var CONSOLEBUILD = 'c1.10';
+var CONSOLEBUILD = 'c1.11';
 
 var args   = lozGetURLArgs();
 var engine = null;
@@ -76,11 +76,10 @@ $(function() {
   
   //}}}
 
+  $(lozData.idInfo).prepend('Version ' + BUILD + ' ' + CONSOLEBUILD + '<br>');
+
   tx('start');
 
   $('#stdin').val('').focus();
-
-  $(lozData.idInfo).prepend('Version ' + BUILD + ' ' + CONSOLEBUILD + '<br>');
-
 });
 
