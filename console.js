@@ -1,5 +1,5 @@
 
-var CONSOLEBUILD = 'c1.11';
+var CONSOLEBUILD = 'c1.12';
 
 var args   = lozGetURLArgs();
 var engine = null;

@@ -1,7 +1,7 @@
 
 // https://github.com/op12no2
 
-var BUILD = "1.19.test.drawish3";
+var BUILD = "1.19.test.drawish5";
 
 //{{{  history
 /*
@@ -1593,8 +1593,6 @@ lozChess.prototype.go = function() {
     if (score <= alpha || score >= beta) {
       //{{{  research
       
-      //this.uci.debug('????????????????????????????????????????????????');
-      
       if (score >= beta) {
         this.uci.debug('BETA', ply, score, '>=', beta);
       }
@@ -1638,11 +1636,7 @@ lozChess.prototype.go = function() {
 
   this.uci.send('bestmove',bestMoveStr);
 
-  //this.uci.debug(board.initNumWhitePieces,board.initNumWhitePawns,board.initNumBlackPieces,board.initNumBlackPawns);
-  //this.uci.debug(spec.board + ' ' + spec.turn + ' ' + spec.rights + ' ' + spec.ep);
-  this.uci.debug(BUILD + ' ' + spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.nodes+'n','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
-  //board.evaluate(0);
-  //this.uci.debug('gphase ' + board.gPhase);
+  this.uci.debug(BUILD + ' ' + spec.depth+'ply','|',this.stats.nodesMega+'Mn','|',this.stats.nodes+'n','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
 }
 
 //}}}
@@ -1765,9 +1759,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     if (this.mistakes) {
       if (Math.random() <= 1.0/(this.uci.spec.depth * this.uci.spec.depth)) {
         var mm = Math.random() + Math.random();
-        //this.uci.debug('mistake',this.uci.spec.depth,depth,score,mm);
+        this.uci.debug('blunder, changed score of ',board.formatMove(move,SAN_FMT),' from ',score,' to ',score*mm|0);
         score = score * mm | 0;
-        //this.uci.debug(score);
       }
     }
     
@@ -1804,15 +1797,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         
         this.uci.send('info',this.stats.nodeStr(),'depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',pvStr);
         this.stats.update();
-        
-        //if (!board.ttGetMove(node))
-          //this.uci.debug('TT AWOL FOR',mv);
-        
-        //if (!pvStr)
-          //this.uci.debug('NULL PV FOR',mv);
-        
-        //if (pvStr.indexOf(mv) != 0)
-          //this.uci.debug('WRONG PV FOR',mv);
         
         if (this.stats.splits > 5)
           this.uci.send('info hashfull',Math.round(1000*board.hashUsed/TTSIZE));
