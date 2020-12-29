@@ -1,4 +1,6 @@
 
+var FENBUILD = 'a1.10';
+
 var args    = lozGetURLArgs();
 var uiBoard = null;
 var engine  = null;
@@ -169,6 +171,7 @@ $(function() {
   else
     updateFenFromBoard();
 
+
   if (args.act == 'eva')
     eval();
   else if (args.act == 'ana')
@@ -179,6 +182,7 @@ $(function() {
     engine           = new Worker(lozData.source);
     engine.onmessage = lozStandardRx;
     $(lozData.idInfo).html('');
+    $(lozData.idInfo).prepend('Version ' + BUILD + ' ' + FENBUILD + '<br>');
     engine.postMessage('uci');
   }
 

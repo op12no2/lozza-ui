@@ -1,5 +1,5 @@
 
-var VER = 1.19;
+var PLAYBUILD = 'p1.10';
 
 if (!window.Worker) {
   document.write('<p><b>DUDE, YOUR BROWSER IS TOO OLD TO PLAY CHESS!<p>TRY <a href="http://www.google.co.uk/chrome/">GOOGLE CHROME</a></a><p>');
@@ -308,6 +308,7 @@ $(function() {
     position     : startFromUI
   });
 
+  $(lozData.idInfo).prepend('Version ' + BUILD + ' ' + PLAYBUILD + '<br>');
   engine.postMessage('uci')
   engine.postMessage('ucinewgame')
   engine.postMessage('debug off')

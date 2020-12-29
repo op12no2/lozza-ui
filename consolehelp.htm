@@ -6,14 +6,14 @@
 <meta http-equiv="content-type"    content="text/html; charset=UTF-8" />
 <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 
-<title>javascript chess engine</title>
+<title>lozza chess engine</title>
 
-<meta name="title"       content="javascript chess engine" />
-<meta name="description" content="lozza - a javascript chess engine" />
-<meta name="keywords"    content="chess, javascript, lozza" />
+<meta name="title"       content="lozza chess engine" />
+<meta name="description" content="lozza chess engine" />
+<meta name="keywords"    content="chess, javascript, lozza, queens, gambit, queens gambit" />
 <meta name="viewport"    content="width=device-width, initial-scale=1, maximum-scale=1">
-<link rel="stylesheet" type="text/css" media="screen" href="bootstrap3/css/bootstrap.min.css" />
 
+<link rel="stylesheet" type="text/css" media="screen" href="bootstrap3/css/bootstrap.min.css" />
 
 <style>
 body {padding: 20px;}
@@ -45,6 +45,8 @@ body {padding: 20px;}
 <p>Attach an identification label to the current position. Only relevant if UCI debugging is on.</p>
 <p><b>ping</b></p>
 <p>Check that the engine is alive.</p>
+<p><b>mistakes</b> 0|1</p>
+<p>Default is 0 (off). Force Lozza to make a few blunders when she moves. The number of blunders is inversely proportional to the depth searched. Auto reset on ucinewgame.</p>
 <p><b>SHORTCUTS</b></p>
 <p><b>u</b> == ucinewgame</p>
 <p><b>q</b> == quit</p>
@@ -58,6 +60,7 @@ body {padding: 20px;}
 <p>Lozza plays it's best move when a go command completes, changing the current position.</p>
 <p>The current position is unchanged after a perft</p>
 <p>The start, stop and clear commands are not be available when using Lozza offline; for example with node.js. Similarly only the textual board representation is shown.</p>
+<p><a href="https://op12no2.github.io/lozza-ui">Lozza Chess</a>
 </body>
 </html>
 
