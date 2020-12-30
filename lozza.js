@@ -1,7 +1,7 @@
 
 // https://github.com/op12no2
 
-var BUILD = "1.19.test.drawish5";
+var BUILD = "1.19.wip5";
 
 //{{{  history
 /*
