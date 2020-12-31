@@ -1,14 +1,16 @@
+//"use strict"
 
 // https://github.com/op12no2
 
-var BUILD = "1.19.wip7";
+var BUILD = "1.19.wip9";
 
 //{{{  history
 /*
 
+1.19 Don't go into Q search if in check and remove Q futility.
 1.19 Remove David Bau's random number stuff.
-1.19 Add mistake command and code.
-1.19 Play UI: add levels etc.
+1.19 Add mistake command and code for users interface levels.
+1.19 Add levels etc to user interface.
 1.19 In web mode don't send some of the UCI crap.
 1.19 Reduce eval if no pawns and close in material.
 1.19 Feather off eval as we get close to 50 move rule.
@@ -1478,18 +1480,31 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   }
   
   //}}}
+
+  if (inCheck == INCHECK_UNKNOWN)
+    inCheck  = board.isKingAttacked(nextTurn);
+
   //{{{  horizon
+  
+  var canExtend = true;
   
   if (depth <= 0) {
   
-    score = board.ttGet(node, 0, alpha, beta);
+    if (!inCheck) {
+      score = board.ttGet(node, 0, alpha, beta);
   
-    if (score != TTSCORE_UNKNOWN)
+      if (score != TTSCORE_UNKNOWN)
+        return score;
+  
+      score = this.qSearch(node, -1, turn, alpha, beta);
+  
       return score;
+    }
   
-    score = this.qSearch(node, -1, turn, alpha, beta);
-  
-    return score;
+    else {
+      depth     = 1;     // (we are in check)
+      canExtend = false; // otherwise we get infinite loops
+    }
   }
   
   //}}}
@@ -1502,9 +1517,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   }
   
   //}}}
-
-  if (inCheck == INCHECK_UNKNOWN)
-    inCheck  = board.isKingAttacked(nextTurn);
 
   var R         = 0;
   var E         = 0;
@@ -1632,11 +1644,12 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     //{{{  extend/reduce/prune
     
     givesCheck = INCHECK_UNKNOWN;
-    E          = 0;
     R          = 0;
+    E          = 0;
     
-    if (inCheck && depth < 5) {
-      E = 1;
+    if (inCheck) {
+      if ((depth < 5) && canExtend)
+        E = 1;
     }
     
     else if (doLMP || doLMR || doFutility) {
@@ -1760,24 +1773,16 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  if (depth > -2)
-    var inCheck = board.isKingAttacked(nextTurn);
-  else
-    var inCheck = 0;
-
-  if (!inCheck && standPat >= beta) {
+  if (standPat >= beta) {
     return standPat;
   }
 
-  if (!inCheck && standPat > alpha)
+  if (standPat > alpha)
     alpha = standPat;
 
   node.cache();
 
-  if (inCheck)
-    board.genEvasions(node, turn);
-  else
-    board.genQMoves(node, turn);
+  board.genQMoves(node, turn);
 
   while (move = node.getNextMove()) {
 
@@ -1800,14 +1805,14 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
     //{{{  futile?
     
-    if (!inCheck && gPhase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+    //if (!inCheck && gPhase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
     
-      board.unmakeMove(node,move);
+    //  board.unmakeMove(node,move);
     
-      node.uncache();
+    //  node.uncache();
     
-      continue;
-    }
+    //  continue;
+    //}
     
     //}}}
 
@@ -1828,15 +1833,6 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
       alpha = score;
     }
   }
-
-  //{{{  no moves?
-  
-  if (inCheck && numLegalMoves == 0) {
-  
-     return -MATE + node.ply;
-  }
-  
-  //}}}
 
   return alpha;
 }
@@ -5134,6 +5130,17 @@ lozBoard.prototype.rand32 = function () {
 
   return Math.random() * 0xFFFFFFFF | 0;
 
+}
+
+//}}}
+//{{{  .randE
+//
+// Exponentially distributed random number (weighted to mean).
+//
+
+lozBoard.prototype.randExp = function (mean) {
+  var r =  Math.ceil(Math.log(1-Math.random())/(-1/mean));
+  return r|0;
 }
 
 //}}}
