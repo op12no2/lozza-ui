@@ -1,4 +1,6 @@
 
+// https://github.com/op12no2
+
 var FENBUILD = 'a1.10';
 
 var args    = lozGetURLArgs();

@@ -1,6 +1,8 @@
 //
-//  needs lozza.js (e1) and good.js (e2)
-//  results are e1 based: e1 wins - e2 wins - draws - e1 points %
+// https://github.com/op12no2
+//
+// needs lozza.js (e1) and good.js (e2)
+// results are e1 based: e1 wins - e2 wins - draws - e1 points %
 //
 
 var verbose     = 1;    // display games

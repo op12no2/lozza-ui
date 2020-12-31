@@ -1,4 +1,6 @@
 
+// https://github.com/op12no2
+
 var lozza = new Worker('lozza.js');
 
 lozza.onmessage = function (e) {

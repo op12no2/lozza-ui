@@ -1,4 +1,6 @@
 
+// https://github.com/op12no2
+
 if (!window.Worker) {
   document.write('<p><b>DUDE, YOUR BROWSER IS TOO OLD TO PLAY CHESS!<p>TRY <a href="http://www.google.co.uk/chrome/">GOOGLE CHROME</a></a><p>');
   exit;
@@ -17,8 +19,9 @@ function initRandom() {
   var d = new Date();
   var t = d.getTime();
   var m = t % 1000;
+  var r = 0;
   for (var i=0; i<m; i++)
-    var r = Math.random();
+    r = r + Math.random();
 }
 
 function another () {
@@ -101,7 +104,7 @@ function timer() {
 $(function() {
 
   initRandom();
-  
+
   $('#stats').html('Loading EPD data from server...');
   $.get('matein1.txt', function(data) {
     data = data.trim();

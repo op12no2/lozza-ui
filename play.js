@@ -1,4 +1,6 @@
 
+// https://github.com/op12no2
+
 var PLAYBUILD = 'p1.10';
 
 if (!window.Worker) {
