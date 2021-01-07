@@ -1,19 +1,13 @@
-//"use strict"
 
 // https://github.com/op12no2
 
-var BUILD = "1.19.wip9";
+var BUILD = "1.19wip";
 
 //{{{  history
 /*
 
-1.19 Don't go into Q search if in check and remove Q futility.
-1.19 Remove David Bau's random number stuff.
-1.19 Add mistake command and code for users interface levels.
-1.19 Add levels etc to user interface.
-1.19 In web mode don't send some of the UCI crap.
-1.19 Reduce eval if no pawns and close in material.
-1.19 Feather off eval as we get close to 50 move rule.
+1.19 Fix hmc init
+1.19 Add mistakes feature for UI.
 
 1.18 Don't move king adjacent to king.
 1.18 Fix black king endgame PST.
@@ -213,6 +207,413 @@ if ((typeof process) != 'undefined')
 else if ((typeof lastMessage) != 'undefined')
 
   lozzaHost = HOST_JSUCI;
+
+//}}}
+//{{{  seed
+/**
+
+seedrandom.js
+=============
+
+Seeded random number generator for Javascript.
+
+version 2.3.10
+Author: David Bau
+Date: 2014 Sep 20
+
+Can be used as a plain script, a node.js module or an AMD module.
+
+Script tag usage
+----------------
+
+<script src=//cdnjs.cloudflare.com/ajax/libs/seedrandom/2.3.10/seedrandom.min.js>
+</script>
+
+// Sets Math.random to a PRNG initialized using the given explicit seed.
+Math.seedrandom('hello.');
+console.log(Math.random());          // Always 0.9282578795792454
+console.log(Math.random());          // Always 0.3752569768646784
+
+// Sets Math.random to an ARC4-based PRNG that is autoseeded using the
+// current time, dom state, and other accumulated local entropy.
+// The generated seed string is returned.
+Math.seedrandom();
+console.log(Math.random());          // Reasonably unpredictable.
+
+// Seeds using the given explicit seed mixed with accumulated entropy.
+Math.seedrandom('added entropy.', { entropy: true });
+console.log(Math.random());          // As unpredictable as added entropy.
+
+// Use "new" to create a local prng without altering Math.random.
+var myrng = new Math.seedrandom('hello.');
+console.log(myrng());                // Always 0.9282578795792454
+
+
+Node.js usage
+-------------
+
+npm install seedrandom
+
+// Local PRNG: does not affect Math.random.
+var seedrandom = require('seedrandom');
+var rng = seedrandom('hello.');
+console.log(rng());                  // Always 0.9282578795792454
+
+// Autoseeded ARC4-based PRNG.
+rng = seedrandom();
+console.log(rng());                  // Reasonably unpredictable.
+
+// Global PRNG: set Math.random.
+seedrandom('hello.', { global: true });
+console.log(Math.random());          // Always 0.9282578795792454
+
+// Mixing accumulated entropy.
+rng = seedrandom('added entropy.', { entropy: true });
+console.log(rng());                  // As unpredictable as added entropy.
+
+
+Require.js usage
+----------------
+
+Similar to node.js usage:
+
+bower install seedrandom
+
+require(['seedrandom'], function(seedrandom) {
+  var rng = seedrandom('hello.');
+  console.log(rng());                  // Always 0.9282578795792454
+});
+
+
+Network seeding
+---------------
+
+<script src=//cdnjs.cloudflare.com/ajax/libs/seedrandom/2.3.10/seedrandom.min.js>
+</script>
+
+<!-- Seeds using urandom bits from a server. -->
+<script src=//jsonlib.appspot.com/urandom?callback=Math.seedrandom">
+</script>
+
+<!-- Seeds mixing in random.org bits -->
+<script>
+(function(x, u, s){
+  try {
+    // Make a synchronous request to random.org.
+    x.open('GET', u, false);
+    x.send();
+    s = unescape(x.response.trim().replace(/^|\s/g, '%'));
+  } finally {
+    // Seed with the response, or autoseed on failure.
+    Math.seedrandom(s, !!s);
+  }
+})(new XMLHttpRequest, 'https://www.random.org/integers/' +
+  '?num=256&min=0&max=255&col=1&base=16&format=plain&rnd=new');
+</script>
+
+Reseeding using user input
+--------------------------
+
+var seed = Math.seedrandom();        // Use prng with an automatic seed.
+document.write(Math.random());       // Pretty much unpredictable x.
+
+var rng = new Math.seedrandom(seed); // A new prng with the same seed.
+document.write(rng());               // Repeat the 'unpredictable' x.
+
+function reseed(event, count) {      // Define a custom entropy collector.
+  var t = [];
+  function w(e) {
+    t.push([e.pageX, e.pageY, +new Date]);
+    if (t.length &lt; count) { return; }
+    document.removeEventListener(event, w);
+    Math.seedrandom(t, { entropy: true });
+  }
+  document.addEventListener(event, w);
+}
+reseed('mousemove', 100);            // Reseed after 100 mouse moves.
+
+The "pass" option can be used to get both the prng and the seed.
+The following returns both an autoseeded prng and the seed as an object,
+without mutating Math.random:
+
+var obj = Math.seedrandom(null, { pass: function(prng, seed) {
+  return { random: prng, seed: seed };
+}});
+
+
+Version notes
+-------------
+
+The random number sequence is the same as version 1.0 for string seeds.
+* Version 2.0 changed the sequence for non-string seeds.
+* Version 2.1 speeds seeding and uses window.crypto to autoseed if present.
+* Version 2.2 alters non-crypto autoseeding to sweep up entropy from plugins.
+* Version 2.3 adds support for "new", module loading, and a null seed arg.
+* Version 2.3.1 adds a build environment, module packaging, and tests.
+* Version 2.3.4 fixes bugs on IE8, and switches to MIT license.
+* Version 2.3.6 adds a readable options object argument.
+* Version 2.3.10 adds support for node.js crypto (contributed by ctd1500).
+
+The standard ARC4 key scheduler cycles short keys, which means that
+seedrandom('ab') is equivalent to seedrandom('abab') and 'ababab'.
+Therefore it is a good idea to add a terminator to avoid trivial
+equivalences on short string seeds, e.g., Math.seedrandom(str + '\0').
+Starting with version 2.0, a terminator is added automatically for
+non-string seeds, so seeding with the number 111 is the same as seeding
+with '111\0'.
+
+When seedrandom() is called with zero args or a null seed, it uses a
+seed drawn from the browser crypto object if present.  If there is no
+crypto support, seedrandom() uses the current time, the native rng,
+and a walk of several DOM objects to collect a few bits of entropy.
+
+Each time the one- or two-argument forms of seedrandom are called,
+entropy from the passed seed is accumulated in a pool to help generate
+future seeds for the zero- and two-argument forms of seedrandom.
+
+On speed - This javascript implementation of Math.random() is several
+times slower than the built-in Math.random() because it is not native
+code, but that is typically fast enough.  Some details (timings on
+Chrome 25 on a 2010 vintage macbook):
+
+* seeded Math.random()          - avg less than 0.0002 milliseconds per call
+* seedrandom('explicit.')       - avg less than 0.2 milliseconds per call
+* seedrandom('explicit.', true) - avg less than 0.2 milliseconds per call
+* seedrandom() with crypto      - avg less than 0.2 milliseconds per call
+
+Autoseeding without crypto is somewhat slower, about 20-30 milliseconds on
+a 2012 windows 7 1.5ghz i5 laptop, as seen on Firefox 19, IE 10, and Opera.
+Seeded rng calls themselves are fast across these browsers, with slowest
+numbers on Opera at about 0.0005 ms per seeded Math.random().
+
+
+LICENSE (MIT)
+-------------
+
+Copyright 2014 David Bau.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+*/
+
+/**
+ * All code is in an anonymous closure to keep the global namespace clean.
+ */
+(function (
+    global, pool, math, width, chunks, digits, module, define, rngname) {
+
+//
+// The following constants are related to IEEE 754 limits.
+//
+var startdenom = math.pow(width, chunks),
+    significance = math.pow(2, digits),
+    overflow = significance * 2,
+    mask = width - 1,
+    nodecrypto;
+
+//
+// seedrandom()
+// This is the seedrandom function described above.
+//
+var impl = math['seed' + rngname] = function(seed, options, callback) {
+  var key = [];
+  options = (options == true) ? { entropy: true } : (options || {});
+
+  // Flatten the seed string or build one from local entropy if needed.
+  var shortseed = mixkey(flatten(
+    options.entropy ? [seed, tostring(pool)] :
+    (seed == null) ? autoseed() : seed, 3), key);
+
+  // Use the seed to initialize an ARC4 generator.
+  var arc4 = new ARC4(key);
+
+  // Mix the randomness into accumulated entropy.
+  mixkey(tostring(arc4.S), pool);
+
+  // Calling convention: what to return as a function of prng, seed, is_math.
+  return (options.pass || callback ||
+      // If called as a method of Math (Math.seedrandom()), mutate Math.random
+      // because that is how seedrandom.js has worked since v1.0.  Otherwise,
+      // it is a newer calling convention, so return the prng directly.
+      function(prng, seed, is_math_call) {
+        if (is_math_call) { math[rngname] = prng; return seed; }
+        else return prng;
+      })(
+
+  // This function returns a random double in [0, 1) that contains
+  // randomness in every bit of the mantissa of the IEEE 754 value.
+  function() {
+    var n = arc4.g(chunks),             // Start with a numerator n < 2 ^ 48
+        d = startdenom,                 //   and denominator d = 2 ^ 48.
+        x = 0;                          //   and no 'extra last byte'.
+    while (n < significance) {          // Fill up all significant digits by
+      n = (n + x) * width;              //   shifting numerator and
+      d *= width;                       //   denominator and generating a
+      x = arc4.g(1);                    //   new least-significant-byte.
+    }
+    while (n >= overflow) {             // To avoid rounding up, before adding
+      n /= 2;                           //   last byte, shift everything
+      d /= 2;                           //   right using integer math until
+      x >>>= 1;                         //   we have exactly the desired bits.
+    }
+    return (n + x) / d;                 // Form the number within [0, 1).
+  }, shortseed, 'global' in options ? options.global : (this == math));
+};
+
+//
+// ARC4
+//
+// An ARC4 implementation.  The constructor takes a key in the form of
+// an array of at most (width) integers that should be 0 <= x < (width).
+//
+// The g(count) method returns a pseudorandom integer that concatenates
+// the next (count) outputs from ARC4.  Its return value is a number x
+// that is in the range 0 <= x < (width ^ count).
+//
+/** @constructor */
+function ARC4(key) {
+  var t, keylen = key.length,
+      me = this, i = 0, j = me.i = me.j = 0, s = me.S = [];
+
+  // The empty key [] is treated as [0].
+  if (!keylen) { key = [keylen++]; }
+
+  // Set up S using the standard key scheduling algorithm.
+  while (i < width) {
+    s[i] = i++;
+  }
+  for (i = 0; i < width; i++) {
+    s[i] = s[j = mask & (j + key[i % keylen] + (t = s[i]))];
+    s[j] = t;
+  }
+
+  // The "g" method returns the next (count) outputs as one number.
+  (me.g = function(count) {
+    // Using instance members instead of closure state nearly doubles speed.
+    var t, r = 0,
+        i = me.i, j = me.j, s = me.S;
+    while (count--) {
+      t = s[i = mask & (i + 1)];
+      r = r * width + s[mask & ((s[i] = s[j = mask & (j + t)]) + (s[j] = t))];
+    }
+    me.i = i; me.j = j;
+    return r;
+    // For robust unpredictability, the function call below automatically
+    // discards an initial batch of values.  This is called RC4-drop[256].
+    // See http://google.com/search?q=rsa+fluhrer+response&btnI
+  })(width);
+}
+
+//
+// flatten()
+// Converts an object tree to nested arrays of strings.
+//
+function flatten(obj, depth) {
+  var result = [], typ = (typeof obj), prop;
+  if (depth && typ == 'object') {
+    for (prop in obj) {
+      try { result.push(flatten(obj[prop], depth - 1)); } catch (e) {}
+    }
+  }
+  return (result.length ? result : typ == 'string' ? obj : obj + '\0');
+}
+
+//
+// mixkey()
+// Mixes a string seed into a key that is an array of integers, and
+// returns a shortened string seed that is equivalent to the result key.
+//
+function mixkey(seed, key) {
+  var stringseed = seed + '', smear, j = 0;
+  while (j < stringseed.length) {
+    key[mask & j] =
+      mask & ((smear ^= key[mask & j] * 19) + stringseed.charCodeAt(j++));
+  }
+  return tostring(key);
+}
+
+//
+// autoseed()
+// Returns an object for autoseeding, using window.crypto if available.
+//
+/** @param {Uint8Array|Navigator=} seed */
+function autoseed(seed) {
+  try {
+    if (nodecrypto) return tostring(nodecrypto.randomBytes(width));
+    global.crypto.getRandomValues(seed = new Uint8Array(width));
+    return tostring(seed);
+  } catch (e) {
+    return [+new Date, global, (seed = global.navigator) && seed.plugins,
+      global.screen, tostring(pool)];
+  }
+}
+
+//
+// tostring()
+// Converts an array of charcodes to a string
+//
+function tostring(a) {
+  return String.fromCharCode.apply(0, a);
+}
+
+//
+// When seedrandom.js is loaded, we immediately mix a few bits
+// from the built-in RNG into the entropy pool.  Because we do
+// not want to interfere with deterministic PRNG state later,
+// seedrandom will not call math.random on its own again after
+// initialization.
+//
+mixkey(math[rngname](), pool);
+
+//
+// Nodejs and AMD support: export the implementation as a module using
+// either convention.
+//
+if (module && module.exports) {
+  module.exports = impl;
+  try {
+    // When in node.js, try using crypto package for autoseeding.
+    nodecrypto = require('crypto');
+  } catch (ex) {}
+} else if (define && define.amd) {
+  define(function() { return impl; });
+}
+
+//
+// Node.js native crypto support.
+//
+
+// End anonymous scope, and pass initial values.
+})(
+  this,   // global window object
+  [],     // pool: entropy pool starts empty
+  Math,   // math: package containing random, pow, and seedrandom
+  256,    // width: each RC4 output is 0 <= x < 256
+  6,      // chunks: at least six RC4 outputs for each double
+  52,     // digits: there are 52 significant digits in a double
+  (typeof module) == 'object' && module,    // present in node.js
+  (typeof define) == 'function' && define,  // present with an AMD loader
+  'random'// rngname: name for Math.random and Math.seedrandom
+);
+
+Math.seedrandom('Lozza rules OK');  //always generates the same sequence of PRNs
 
 //}}}
 //{{{  constants
@@ -910,9 +1311,10 @@ function lozChess () {
     this.nodes[i].root = i == 0;
   }
 
-  this.board    = new lozBoard();
-  this.stats    = new lozStats();
-  this.uci      = new lozUCI();
+  this.board = new lozBoard();
+  this.stats = new lozStats();
+  this.uci   = new lozUCI();
+
   this.mistakes = 0;
 
   this.rootNode = this.nodes[0];
@@ -1060,19 +1462,6 @@ function lozChess () {
 }
 
 //}}}
-//{{{  .randomise
-
-lozChess.prototype.randomise = function () {
-
-  var d = new Date();
-  var t = d.getTime();
-  var m = t % 1000;
-  var r = 0;
-  for (var i=0; i<m; i++)
-    r = r + Math.random();
-}
-
-//}}}
 //{{{  .init
 
 lozChess.prototype.init = function () {
@@ -1081,9 +1470,10 @@ lozChess.prototype.init = function () {
     this.nodes[i].init();
 
   this.board.init();
-  this.stats.init()}
+  this.stats.init();
 
   this.mistakes = 0;
+}
 
 //}}}
 //{{{  .newGameInit
@@ -1092,6 +1482,7 @@ lozChess.prototype.newGameInit = function () {
 
   this.board.ttInit();
   this.uci.numMoves = 0;
+
   this.mistakes = 0;
 }
 
@@ -1228,7 +1619,9 @@ lozChess.prototype.go = function() {
 
   this.uci.send('bestmove',bestMoveStr);
 
-  this.uci.debug(BUILD);
+  //this.uci.debug(board.initNumWhitePieces,board.initNumWhitePawns,board.initNumBlackPieces,board.initNumBlackPawns);
+  this.uci.debug(spec.board + ' ' + spec.turn + ' ' + spec.rights + ' ' + spec.ep);
+  this.uci.debug(BUILD + ' ' + spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.nodes+'n','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
 }
 
 //}}}
@@ -1390,6 +1783,15 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         this.uci.send('info',this.stats.nodeStr(),'depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',pvStr);
         this.stats.update();
         
+        //if (!board.ttGetMove(node))
+          //this.uci.debug('TT AWOL FOR',mv);
+        
+        //if (!pvStr)
+          //this.uci.debug('NULL PV FOR',mv);
+        
+        //if (pvStr.indexOf(mv) != 0)
+          //this.uci.debug('WRONG PV FOR',mv);
+        
         if (this.stats.splits > 5)
           this.uci.send('info hashfull',Math.round(1000*board.hashUsed/TTSIZE));
         
@@ -1457,11 +1859,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   //}}}
   //{{{  mate distance pruning
-  //
-  // https://www.chessprogramming.org/Mate_Distance_Pruning
-  //
-  // node.ply is the depth from the root.
-  //
   
   var matingValue = MATE - node.ply;
   
@@ -1480,31 +1877,18 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   }
   
   //}}}
-
-  if (inCheck == INCHECK_UNKNOWN)
-    inCheck  = board.isKingAttacked(nextTurn);
-
   //{{{  horizon
-  
-  var canExtend = true;
   
   if (depth <= 0) {
   
-    if (!inCheck) {
-      score = board.ttGet(node, 0, alpha, beta);
+    score = board.ttGet(node, 0, alpha, beta);
   
-      if (score != TTSCORE_UNKNOWN)
-        return score;
-  
-      score = this.qSearch(node, -1, turn, alpha, beta);
-  
+    if (score != TTSCORE_UNKNOWN)
       return score;
-    }
   
-    else {
-      depth     = 1;     // (we are in check)
-      canExtend = false; // otherwise we get infinite loops
-    }
+    score = this.qSearch(node, -1, turn, alpha, beta);
+  
+    return score;
   }
   
   //}}}
@@ -1517,6 +1901,9 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   }
   
   //}}}
+
+  if (inCheck == INCHECK_UNKNOWN)
+    inCheck  = board.isKingAttacked(nextTurn);
 
   var R         = 0;
   var E         = 0;
@@ -1644,12 +2031,11 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     //{{{  extend/reduce/prune
     
     givesCheck = INCHECK_UNKNOWN;
-    R          = 0;
     E          = 0;
+    R          = 0;
     
-    if (inCheck) {
-      if ((depth < 5) && canExtend)
-        E = 1;
+    if (inCheck && depth < 5) {
+      E = 1;
     }
     
     else if (doLMP || doLMR || doFutility) {
@@ -1773,16 +2159,24 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  if (standPat >= beta) {
+  if (depth > -2)
+    var inCheck = board.isKingAttacked(nextTurn);
+  else
+    var inCheck = 0;
+
+  if (!inCheck && standPat >= beta) {
     return standPat;
   }
 
-  if (standPat > alpha)
+  if (!inCheck && standPat > alpha)
     alpha = standPat;
 
   node.cache();
 
-  board.genQMoves(node, turn);
+  if (inCheck)
+    board.genEvasions(node, turn);
+  else
+    board.genQMoves(node, turn);
 
   while (move = node.getNextMove()) {
 
@@ -1805,14 +2199,14 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
     //{{{  futile?
     
-    //if (!inCheck && gPhase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+    if (!inCheck && gPhase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
     
-    //  board.unmakeMove(node,move);
+      board.unmakeMove(node,move);
     
-    //  node.uncache();
+      node.uncache();
     
-    //  continue;
-    //}
+      continue;
+    }
     
     //}}}
 
@@ -1833,6 +2227,15 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
       alpha = score;
     }
   }
+
+  //{{{  no moves?
+  
+  if (inCheck && numLegalMoves == 0) {
+  
+     return -MATE + node.ply;
+  }
+  
+  //}}}
 
   return alpha;
 }
@@ -3750,15 +4153,6 @@ lozBoard.prototype.evaluate = function (turn) {
   var bNumKnights = this.bCounts[KNIGHT];
   var bNumPawns   = this.bCounts[PAWN];
   
-  var wNumMajors  = wNumQueens + wNumRooks;
-  var bNumMajors  = bNumQueens + bNumRooks;
-  
-  var wNumMinors  = wNumBishops + wNumKnights;
-  var bNumMinors  = bNumBishops + bNumKnights;
-  
-  var wNumPieces  = wNumMinors + wNumMajors + wNumPawns
-  var bNumPieces  = bNumMinors + bNumMajors + bNumPawns
-  
   var wKingSq   = this.wList[0];
   var wKingRank = RANK[wKingSq];
   var wKingFile = FILE[wKingSq];
@@ -3785,51 +4179,37 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  draw?
   
-  var isDraw = false;
-  
+  //todo - lots more here and drawish.
   
   if (numPieces == 2)                                                                  // K v K.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))    // K v K+N|B.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 4 && (wNumKnights || wNumBishops) && (bNumKnights || bNumBishops))  // K+N|B v K+N|B.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 4 && (wNumKnights == 2 || bNumKnights == 2))                        // K v K+NN.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 5 && wNumKnights == 2 && (bNumKnights || bNumBishops))              //
-    isDraw = true;
+    return CONTEMPT;                                                                   //
                                                                                        // K+N|B v K+NN
   if (numPieces == 5 && bNumKnights == 2 && (wNumKnights || wNumBishops))              //
-    isDraw = true;
+    return CONTEMPT;                                                                   //
   
   if (numPieces == 5 && wNumBishops == 2 && bNumBishops)                               //
-    isDraw = true;
+    return CONTEMPT;                                                                   //
                                                                                        // K+B v K+BB
   if (numPieces == 5 && bNumBishops == 2 && wNumBishops)                               //
-    isDraw = true;
+    return CONTEMPT;                                                                   //
   
-  if (isDraw) {
-    //{{{  verbose
-    
-    if (this.verbose) {
-      uci.send('----');
-      uci.send('Draw');
-      uci.send('----');
-    }
-    
-    //}}}
+  if (numPieces == 4 && wNumRooks && bNumRooks)                                        // K+R v K+R.
     return CONTEMPT;
-  }
   
-  //if (numPieces == 4 && wNumRooks && bNumRooks)                                        // K+R v K+R.
-    //return CONTEMPT;
-  
-  //if (numPieces == 4 && wNumQueens && bNumQueens)                                      // K+Q v K+Q.
-    //return CONTEMPT;
+  if (numPieces == 4 && wNumQueens && bNumQueens)                                      // K+Q v K+Q.
+    return CONTEMPT;
   
   //}}}
 
@@ -5052,75 +5432,30 @@ lozBoard.prototype.evaluate = function (turn) {
   var e = (evalS * ((256 - this.gPhase) / 256) | 0) + (evalE * ((this.gPhase) / 256) | 0);
   
   //}}}
-
-  e *= ((-turn >> 31) | 1);
-
-  //{{{  taper
-  
-  var m1      = 1.0;
-  var drawish = this.repHi - this.repLo;
-  
-  if ((this.gPhase > EPHASE) && (drawish > 8)) {
-    if (drawish > 100)
-      drawish = 100;
-    m1 = (101.0 - drawish) / 100.0;
-  }
-  
-  //}}}
-  //{{{  no pawns
-  
-  var m2 = 1.0;
-  
-  if (!bNumPawns && !wNumPawns) {
-    var mDelta = Math.abs(this.runningEvalE);
-    if (mDelta < 400)
-      m2 = 0.25;
-    else if (mDelta < 700 && !bNumMajors && !wNumMajors)
-      m2 = 0.50;
-    else
-      m2 = 0.90;
-  }
-  
-  //}}}
-
-  var e2 = e * m1 * m2 | 0;
-
   //{{{  verbose
   
   if (this.verbose) {
-    uci.send('info string','final eval =',e2);
-    uci.send('info string','-----');
-    uci.send('info string','no pawns multiplier =',               m2);
-    uci.send('info string','nearing fifty move rule multiplier =',m1);
-    uci.send('info string','-----');
-    uci.send('info string','phased eval =',e);
-    uci.send('info string','game phase (0 to 256) =',this.gPhase);
-    uci.send('info string','turn (0=w,1=b) =',turn);
-    uci.send('info string','-----');
-    uci.send('info string','initial eval:',   'MG =',evalS,            ', EG =',evalE);
-    uci.send('info string','trapped bn:',     'MG =',trappedS,         ', EG =',trappedE);
-    uci.send('info string','mobility:',       'MG =',mobS,             ', EG =',mobE);
-    uci.send('info string','attacks:',        'MG =',attS,             ', EG =',attE);
-    uci.send('info string','king:',           'MG =',kingS,            ', EG =',kingE);
-    uci.send('info string','queens:',         'MG =',queensS,          ', EG =',queensE);
-    uci.send('info string','rooks:',          'MG =',rooksS,           ', EG =',rooksE);
-    uci.send('info string','bishops:',        'MG =',bishopsS,         ', EG =',bishopsE);
-    uci.send('info string','knights:',        'MG =',knightsS,         ', EG =',knightsE);
-    uci.send('info string','pawns:',          'MG =',pawnsS,           ', EG =',pawnsE);
-    uci.send('info string','tempo:',          'MG =',tempoS,           ', EG =',tempoE);
-    uci.send('info string','material:',       'MG =',this.runningEvalS,', EG =',this.runningEvalE);
-    uci.send('info string','-----');
-    uci.send('info string','num pieces (ex. k):','W =', wNumPieces,       ', B =', bNumPieces);
-    uci.send('info string','num majors (q+r):',  'W =', wNumMajors,       ', B =', bNumMajors);
-    uci.send('info string','num minors (b+n):',  'W =', wNumMinors,       ', B =', bNumMinors);
-    uci.send('info string','num pawns:',         'W =', wNumPawns,        ', B =', bNumPawns);
-    uci.send('info string','-----');
-    uci.send('info string','home pawn:','W =', wHome != 0,', B =', bHome != 0);
+    uci.send('info string','phased eval',    'PH',this.gPhase,      'VAL',e);
+    uci.send('info string','evaluation',     'MG',evalS,            'EG',evalE);
+    uci.send('info string','trapped',        'MG',trappedS,         'EG',trappedE);
+    uci.send('info string','mobility',       'MG',mobS,             'EG',mobE);
+    uci.send('info string','attacks',        'MG',attS,             'EG',attE);
+    uci.send('info string','material',       'MG',this.runningEvalS,'EG',this.runningEvalE);
+    uci.send('info string','king',           'MG',kingS,            'EG',kingE);
+    uci.send('info string','queens',         'MG',queensS,          'EG',queensE);
+    uci.send('info string','rooks',          'MG',rooksS,           'EG',rooksE);
+    uci.send('info string','bishops',        'MG',bishopsS,         'EG',bishopsE);
+    uci.send('info string','knights',        'MG',knightsS,         'EG',knightsE);
+    uci.send('info string','pawns',          'MG',pawnsS,           'EG',pawnsE);
+    uci.send('info string','home pawn',      'W', wHome != 0,       'B', bHome != 0);
+    uci.send('info string','tempo',          'MG',tempoS,           'EG',tempoE);
   }
   
   //}}}
 
-  return e2;
+  e *= ((-turn >> 31) | 1);
+
+  return e;
 }
 
 //}}}
@@ -5130,17 +5465,6 @@ lozBoard.prototype.rand32 = function () {
 
   return Math.random() * 0xFFFFFFFF | 0;
 
-}
-
-//}}}
-//{{{  .randE
-//
-// Exponentially distributed random number (weighted to mean).
-//
-
-lozBoard.prototype.randExp = function (mean) {
-  var r =  Math.ceil(Math.log(1-Math.random())/(-1/mean));
-  return r|0;
 }
 
 //}}}
@@ -6228,19 +6552,19 @@ onmessage = function(e) {
       
       //}}}
 
-    case 'ucinewgame':
-      //{{{  ucinewgame
+    case 'mistakes':
+      //{{{  mistakes
       
-      lozza.newGameInit();
+      lozza.mistakes = uci.getInt('mistakes',0);
       
       break;
       
       //}}}
 
-    case 'mistakes':
-      //{{{  mistakes
+    case 'ucinewgame':
+      //{{{  ucinewgame
       
-      lozza.mistakes = uci.getInt('mistakes',0);
+      lozza.newGameInit();
       
       break;
       
@@ -6273,15 +6597,11 @@ onmessage = function(e) {
     case 'uci':
       //{{{  uci
       
-      if (lozzaHost != HOST_WEB) {
-        uci.send('id name Lozza',BUILD);
-        uci.send('id author Colin Jenkins');
-        uci.send('option');
-        uci.send('uciok');
-      }
-      else {
-        uci.send('Welcome to Lozza chess!');
-      }
+      uci.send('id name Lozza',BUILD);
+      uci.send('id author Colin Jenkins');
+      uci.send('option');
+      uci.send('uciok');
+      
       break;
       
       //}}}
@@ -6381,8 +6701,6 @@ onmessage = function(e) {
 
 var lozza         = new lozChess()
 lozza.board.lozza = lozza;
-
-lozza.randomise();
 
 //{{{  node interface
 
