@@ -6,8 +6,10 @@ var BUILD = "1.19wip";
 //{{{  history
 /*
 
-1.19 Fix hmc init
-1.19 Add mistakes feature for UI.
+1.19 Add pstsquare command.
+1.19 Add pvalue command.
+1.19 Fix hmc init.
+1.19 Add mistakes command for UI.
 
 1.18 Don't move king adjacent to king.
 1.18 Fix black king endgame PST.
@@ -1609,6 +1611,8 @@ lozChess.prototype.go = function() {
 
     ply += 1;
   }
+
+  //console.log('lozza',ply);
 
   this.stats.update();
   this.stats.stop();
@@ -6458,6 +6462,8 @@ onmessage = function(e) {
     uci.tokens  = uci.message.split(' ');
     uci.command = uci.tokens[0];
 
+    //console.log(e.data);
+
     if (!uci.command)
       continue;
 
@@ -6487,6 +6493,8 @@ onmessage = function(e) {
     }
     
     //}}}
+
+    //console.log('uci',uci.command);
 
     switch (uci.command) {
 
@@ -6558,6 +6566,58 @@ onmessage = function(e) {
       lozza.mistakes = uci.getInt('mistakes',0);
       
       break;
+      
+      //}}}
+
+    case 'pvalue':
+      //{{{  pvalue
+      
+      VALUE_PAWN    = uci.getInt('pawn',VALUE_PAWN);
+      VALUE_KNIGHT  = uci.getInt('knight',VALUE_KNIGHT);
+      VALUE_BISHOP  = uci.getInt('bishop',VALUE_BISHOP);
+      VALUE_ROOK    = uci.getInt('rook',VALUE_ROOK);
+      VALUE_QUEEN   = uci.getInt('queen',VALUE_QUEEN);
+      
+      VALUE_VECTOR = [0,VALUE_PAWN,VALUE_KNIGHT,VALUE_BISHOP,VALUE_ROOK,VALUE_QUEEN,VALUE_KING];
+      
+      //console.log('pvalue',VALUE_VECTOR);
+      
+      break;
+      
+      //}}}
+
+    case 'pstsquare':
+      //{{{  pstsquare
+      
+      var piece = uci.getInt('piece',0);
+      var sq    = uci.getInt('sq',0);
+      var mid   = uci.getInt('mid',0);
+      var end   = uci.getInt('end',0);
+      
+      if (mid)
+        WS_PST[piece][sq] = mid;
+      
+      if (end)
+        WE_PST[piece][sq] = end;
+      
+      _pst2Black(WPAWN_PSTS,   BPAWN_PSTS);
+      _pst2Black(WPAWN_PSTE,   BPAWN_PSTE);
+      _pst2Black(WKNIGHT_PSTS, BKNIGHT_PSTS);
+      _pst2Black(WKNIGHT_PSTE, BKNIGHT_PSTE);
+      _pst2Black(WBISHOP_PSTS, BBISHOP_PSTS);
+      _pst2Black(WBISHOP_PSTE, BBISHOP_PSTE);
+      _pst2Black(WROOK_PSTS,   BROOK_PSTS);
+      _pst2Black(WROOK_PSTE,   BROOK_PSTE);
+      _pst2Black(WQUEEN_PSTS,  BQUEEN_PSTS);
+      _pst2Black(WQUEEN_PSTE,  BQUEEN_PSTE);
+      _pst2Black(WKING_PSTS,   BKING_PSTS);
+      _pst2Black(WKING_PSTE,   BKING_PSTE);
+      
+      //console.log('set pst','piece',piece,'sq',sq,'mid',mid,'end',end);
+      //console.log('ws',WS_PST[piece]);
+      //console.log('we',WE_PST[piece]);
+      //console.log('bs',BS_PST[piece]);
+      //console.log('be',BE_PST[piece]);
       
       //}}}
 

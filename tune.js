@@ -3,10 +3,21 @@
 //
 // needs lozza.js (e1) and good.js (e2)
 // results are e1 based: e1 wins - e2 wins - draws - e1 points %
+// e2 is sent the options.
 //
 
-var verbose     = 1;    // display games
-var moveTime    = 250;  // ms
+var verbose   = 0;   // display games
+var moveTime  = 25;  // ms
+var selOption = 0;   // so sendOption func can see it
+
+var optionV = [315,320,325];
+
+function sendOption () {
+  //var c = 'pstsquare piece 5 sq 113 mid ' + optionV[selOption];
+  var c = 'pvalue knight ' + optionV[selOption];
+  //console.log(selOption,c);
+  return c;
+}
 
 ///////////////////////////////
 
@@ -15,6 +26,9 @@ if (!window.Worker) {
   exit;
 }
 
+var numOptions  = optionV.length;
+var optionR     = [];
+var optionC     = [];
 var args        = lozGetURLArgs();
 var board       = null;
 var chess       = null;
@@ -28,8 +42,41 @@ var e2Wins      = 0;
 var numDraws    = 0;
 var first       = 1;
 var id          = 0;
+var timeThen    = Date.now();
+var stopping    = 0;
 
-console.log('numOpenings',numOpenings);
+for (var i=0; i < numOptions; i++) {
+  optionR[i] = 0.0;
+  optionC[i] = 0.0;
+}
+
+function pickOption () {
+  selOption = Math.random() * numOptions | 0;
+  if (selOption < 0 || selOption >= numOptions)
+    console.log(selOption,'option out of bounds');
+  else
+    console.log('trying value',optionV[selOption],'...');
+  return selOption;
+}
+
+function randMoveTime () {
+  var r = moveTime + ((moveTime/5) * Math.random()) - (moveTime/10) | 0;
+  //console.log(r);
+  return r;
+}
+
+function randomise () {
+
+  var t = Date.now();
+  var m = t % 10000;
+  var r = 0;
+  for (var i=0; i<m; i++)
+    r = r + Math.random();
+  console.log(r);
+  return r;
+}
+
+//console.log('numOpenings',numOpenings);
 
 lozData.page    = 'tune.htm';
 lozData.idInfo  = '#info';
@@ -75,7 +122,7 @@ function eMessage (e,me,tx,n) {
 
     if (!chess.game_over()) {
       tx.postMessage('position startpos moves ' + strMoves());
-      tx.postMessage('go movetime ' + moveTime);
+      tx.postMessage('go movetime ' + randMoveTime());
     }
     else {
       board.position(chess.fen());
@@ -122,15 +169,21 @@ function showEnd (n) {
     e2.terminate();
 
     if (chess.in_checkmate()) {
-      if (n == 1)
+      if (n == 1) {
         e1Wins += 1;
-      else if (n == 2)
+        //optionR[selOption] = optionR[selOption] - 1.0;
+      }
+      else if (n == 2) {
         e2Wins += 1;
+        optionR[selOption] = optionR[selOption] + 1.0;
+      }
       else
         console.log('showEnd bad n value',n);
     }
-    else
+    else {
       numDraws += 1;
+      optionR[selOption] = optionR[selOption] + 0.5;
+    }
 
     numGames++;
 
@@ -142,10 +195,20 @@ function showEnd (n) {
     var e1Percent = 0.5 + e1Points / (e1Points+e2Points) * 100 | 0;
 
     $(lozData.idInfo).html('' + numGames + ': ' + e1Wins + '-' + e2Wins + '-' + numDraws + ' ' + e1Percent + '%<br>');
+
+    console.log(optionC,optionR,optionV);
+
+    var timeNow = Date.now();
+    if (numGames % 100 == 0)
+      console.log('games per hour',((numGames/(timeNow-timeThen))*1000*60*60)|0);
   }
+
+  if (stopping)
+    return;
+
   var choose    = Math.random() * numOpenings | 0;
   var opening   = OPENINGS[choose];
-  console.log(choose);
+  //console.log(choose);
   var openMoves = opening.split(' ');
 
   chess.reset();
@@ -169,18 +232,22 @@ function showEnd (n) {
   e1.postMessage('ucinewgame')
   e1.postMessage('debug off')
 
+  selOption = pickOption();
+  optionC[selOption] = optionC[selOption] + 1;
+
   e2.postMessage('uci')
   e2.postMessage('ucinewgame')
   e2.postMessage('debug off')
+  e2.postMessage(''+sendOption())
 
   if (first == 1) {
     e1.postMessage('position startpos moves ' + strMoves());
-    e1.postMessage('go movetime ' + moveTime);
+    e1.postMessage('go movetime ' + randMoveTime());
     first = 2;
   }
   else if (first == 2){
     e2.postMessage('position startpos moves ' + strMoves());
-    e2.postMessage('go movetime ' + moveTime);
+    e2.postMessage('go movetime ' + randMoveTime());
     first = 1;
   }
   else
@@ -188,6 +255,20 @@ function showEnd (n) {
 }
 
 $(function() {
+
+  $('#stop').click(function() {
+    stopping = 1;
+    console.log('stopping after this game...');
+    return true;
+  });
+
+  $('#restart').click(function() {
+    stopping = 0;
+    showEnd(0);
+    return true;
+  });
+
+  randomise();
 
   chess = new Chess();
 
