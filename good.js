@@ -1551,8 +1551,8 @@ lozChess.prototype.go = function() {
     if (movTime > 0)
       this.stats.moveTime = movTime | 0;
   
-    if (this.stats.moveTime < 10 && (spec.wTime || spec.bTime))
-      this.stats.moveTime = 10;
+    if (this.stats.moveTime < 1 && (spec.wTime || spec.bTime))
+      this.stats.moveTime = 1;
   }
   
   //}}}
@@ -1624,8 +1624,8 @@ lozChess.prototype.go = function() {
   this.uci.send('bestmove',bestMoveStr);
 
   //this.uci.debug(board.initNumWhitePieces,board.initNumWhitePawns,board.initNumBlackPieces,board.initNumBlackPawns);
-  this.uci.debug(spec.board + ' ' + spec.turn + ' ' + spec.rights + ' ' + spec.ep);
-  this.uci.debug(BUILD + ' ' + spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.nodes+'n','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
+  //this.uci.debug(spec.board + ' ' + spec.turn + ' ' + spec.rights + ' ' + spec.ep);
+  //this.uci.debug(BUILD + ' ' + spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.nodes+'n','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
 }
 
 //}}}
@@ -6336,7 +6336,7 @@ function lozUCI () {
   this.tokens    = [];
   this.command   = '';
   this.spec      = {};
-  this.debugging = true;
+  this.debugging = false;
   this.nodefs    = 0;
   this.numMoves  = 0;
 

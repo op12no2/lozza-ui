@@ -47,11 +47,23 @@ var stopping    = 0;
 
 for (var i=0; i < numOptions; i++) {
   optionR[i] = 0.0;
-  optionC[i] = 0.0;
+  optionC[i] = 0;
 }
 
 function pickOption () {
-  selOption = Math.random() * numOptions | 0;
+
+  selOption = -1;
+  minCount = 9999999999;
+  for (var i=0; i < numOptions; i++) {
+    if (optionC[i] < minCount) {
+      minCount = optionC[i];
+      selOption = i;
+    }
+  }
+
+  if (selOption == -1)
+    selOption = Math.random() * numOptions | 0;
+
   if (selOption < 0 || selOption >= numOptions)
     console.log(selOption,'option out of bounds');
   else
