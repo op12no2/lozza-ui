@@ -1579,10 +1579,10 @@ lozChess.prototype.go = function() {
       //{{{  research
       
       if (score >= beta) {
-        this.uci.debug('BETA', ply, score, '>=', beta);
+        //this.uci.debug('BETA', ply, score, '>=', beta);
       }
       else {
-        this.uci.debug('ALPHA', ply, score, '<=', alpha);
+        //this.uci.debug('ALPHA', ply, score, '<=', alpha);
         if (totTime > 30000) {
           movTime              = movTime / 2 | 0;
           this.stats.moveTime += movTime;
@@ -1619,7 +1619,8 @@ lozChess.prototype.go = function() {
 
   bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
 
-  board.makeMove(this.rootNode,this.stats.bestMove);
+  if (lozzaHost == HOST_WEB)
+    board.makeMove(this.rootNode,this.stats.bestMove);
 
   this.uci.send('bestmove',bestMoveStr);
 
@@ -1786,15 +1787,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         
         this.uci.send('info',this.stats.nodeStr(),'depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',pvStr);
         this.stats.update();
-        
-        //if (!board.ttGetMove(node))
-          //this.uci.debug('TT AWOL FOR',mv);
-        
-        //if (!pvStr)
-          //this.uci.debug('NULL PV FOR',mv);
-        
-        //if (pvStr.indexOf(mv) != 0)
-          //this.uci.debug('WRONG PV FOR',mv);
         
         if (this.stats.splits > 5)
           this.uci.send('info hashfull',Math.round(1000*board.hashUsed/TTSIZE));
@@ -6659,7 +6651,7 @@ onmessage = function(e) {
       
       uci.send('id name Lozza',BUILD);
       uci.send('id author Colin Jenkins');
-      uci.send('option');
+      //uci.send('option');
       uci.send('uciok');
       
       break;
@@ -6754,10 +6746,6 @@ onmessage = function(e) {
 //}}}
 
 //}}}
-
-//if (lozzaHost == HOST_NODEJS) {
-  //%NeverOptimizeFunction(lozBoard.prototype.ttInit);  // can be uncommented if using google chrome browser
-//}
 
 var lozza         = new lozChess()
 lozza.board.lozza = lozza;
