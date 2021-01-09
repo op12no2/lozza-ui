@@ -1878,10 +1878,10 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   if (depth <= 0) {
   
-    //score = board.ttGet(node, 0, alpha, beta);
+    score = board.ttGet(node, 0, alpha, beta);
   
-    //if (score != TTSCORE_UNKNOWN)
-      //return score;
+    if (score != TTSCORE_UNKNOWN)
+      return score;
   
     score = this.qSearch(node, -1, turn, alpha, beta);
   
