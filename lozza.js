@@ -6555,9 +6555,6 @@ onmessage = function(e) {
       uci.spec.bInc      = uci.getInt('binc',0);
       uci.spec.movesToGo = uci.getInt('movestogo',0);
       
-      if (uci.spec.moveTime > 20)
-        uci.spec.moveTime = uci.spec.moveTime - 1;
-      
       uci.numMoves++;
       
       lozza.go();
