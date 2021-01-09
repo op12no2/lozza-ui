@@ -6,6 +6,7 @@ var BUILD = "1.19wip";
 //{{{  history
 /*
 
+1.19 Don't return mate scores from Q!
 1.19 Add pstsquare command.
 1.19 Add pvalue command.
 1.19 Fix hmc init.
@@ -2232,15 +2233,6 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
       alpha = score;
     }
   }
-
-  //{{{  no moves?
-  
-  if (inCheck && numLegalMoves == 0) {
-  
-     return -MATE + node.ply;
-  }
-  
-  //}}}
 
   return alpha;
 }
@@ -6562,6 +6554,9 @@ onmessage = function(e) {
       uci.spec.wInc      = uci.getInt('winc',0);
       uci.spec.bInc      = uci.getInt('binc',0);
       uci.spec.movesToGo = uci.getInt('movestogo',0);
+      
+      if (uci.spec.moveTime > 20)
+        hackuci.spec.moveTime = uci.spec.moveTime - 1;
       
       uci.numMoves++;
       
