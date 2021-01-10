@@ -1622,8 +1622,8 @@ lozChess.prototype.go = function() {
 
   bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
 
-  if (lozzaHost == HOST_WEB)
-    board.makeMove(this.rootNode,this.stats.bestMove);
+  //if (lozzaHost == HOST_WEB)
+    //board.makeMove(this.rootNode,this.stats.bestMove);
 
   this.uci.send('bestmove',bestMoveStr);
 
