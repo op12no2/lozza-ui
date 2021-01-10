@@ -7,6 +7,7 @@ var BUILD = "1.19wip";
 /*
 
 1.19 Is WIP. Please do not test.
+1.19 Reduce Q start mobility.
 1.19 Taper eval with 50 move rule.
 1.19 Don't return mate scores from Q!
 1.19 Add pstsquare command.
@@ -5008,7 +5009,7 @@ lozBoard.prototype.evaluate = function (turn) {
       to = fr + 13;  while (!b[to]) {att += BKZ[to]; to += 13; mob++;} mob += MOB_QIS[b[to]]; att += BKZ[to] * MOB_QIS[b[to]];
       to = fr - 13;  while (!b[to]) {att += BKZ[to]; to -= 13; mob++;} mob += MOB_QIS[b[to]]; att += BKZ[to] * MOB_QIS[b[to]];
       
-      mobS += mob * MOB_QS;
+      mobS += (mob * MOB_QS) / 2 | 0;
       mobE += mob * MOB_QE;
       
       if (att) {
@@ -5224,7 +5225,7 @@ lozBoard.prototype.evaluate = function (turn) {
       to = fr + 13;  while (!b[to]) {att += WKZ[to]; to += 13; mob++;} mob += MOB_QIS[b[to]]; att += WKZ[to] * MOB_QIS[b[to]];
       to = fr - 13;  while (!b[to]) {att += WKZ[to]; to -= 13; mob++;} mob += MOB_QIS[b[to]]; att += WKZ[to] * MOB_QIS[b[to]];
       
-      mobS -= mob * MOB_QS;
+      mobS -= (mob * MOB_QS) / 2 | 0;
       mobE -= mob * MOB_QE;
       
       if (att) {
