@@ -1,7 +1,7 @@
 //
 // https://github.com/op12no2
 //
-// needs lozza.js (e1) and good.js (e2)
+// needs e1.js and e2.js
 // results are e1 based: e1 wins - e2 wins - draws - e1 points %
 // e2 is sent the options.
 //
@@ -234,10 +234,10 @@ function showEnd (n) {
   if (verbose)
     board.position(chess.fen());
 
-  e1           = new Worker('lozza.js');
+  e1           = new Worker('e1.js');
   e1.onmessage = e1Message;
 
-  e2           = new Worker('good.js');
+  e2           = new Worker('e2.js');
   e2.onmessage = e2Message;
 
   e1.postMessage('uci')
