@@ -1,9 +1,0 @@
-bk.txt|Bratko-Kopec|30000|https://www.chessprogramming.org/Bratko-Kopec_Test
-wac.txt|Win at Chess|2000|https://www.chessprogramming.org/Win_at_Chess
-sts.txt|Strategic test suite|10000|https://sites.google.com/site/strategictestsuite/
-nolot.txt|Nolot suite|30000|https://www.chessprogramming.org/The_Nolot_Suite
-sbd.txt|Silent but deadly|30000|https://www.chessprogramming.org/Silent_but_Deadly
-matein6.txt|Mate in 6|100000|http://www.talkchess.com/forum/viewtopic.php?t=55104
-matein7.txt|Mate in 7|100000|http://www.talkchess.com/forum/viewtopic.php?t=55104
-matein8.txt|Mate in 8|100000|http://www.talkchess.com/forum/viewtopic.php?t=55104
-matein9.txt|Mate in 9|100000|http://www.talkchess.com/forum/viewtopic.php?t=55104

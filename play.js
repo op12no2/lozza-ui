@@ -178,13 +178,7 @@ function postGo () {
 
   $('#strength').html('Strength (' + level + ')'); //jic
   engine.postMessage('debug off')
-  //engine.postMessage('debug on')
-  if (level <= 4)
-    engine.postMessage('mistakes 1')
-  else
-    engine.postMessage('mistakes 0')
   engine.postMessage(go);
-  //console.log(go);
 }
 
 //}}}

@@ -1,19 +1,10 @@
 
 // https://github.com/op12no2
 
-var BUILD = "1.19wip";
+var BUILD = "1.18";
 
 //{{{  history
 /*
-
-1.19 Is WIP. Please do not test.
-1.19 Reduce Q start mobility.
-1.19 Taper eval with 50 move rule.
-1.19 Don't return mate scores from Q!
-1.19 Add pstsquare command.
-1.19 Add pvalue command.
-1.19 Fix hmc init.
-1.19 Add mistakes command for UI.
 
 1.18 Don't move king adjacent to king.
 1.18 Fix black king endgame PST.
@@ -1321,8 +1312,6 @@ function lozChess () {
   this.stats = new lozStats();
   this.uci   = new lozUCI();
 
-  this.mistakes = 0;
-
   this.rootNode = this.nodes[0];
 
   for (var i=0; i < this.nodes.length; i++)
@@ -1477,8 +1466,6 @@ lozChess.prototype.init = function () {
 
   this.board.init();
   this.stats.init();
-
-  this.mistakes = 0;
 }
 
 //}}}
@@ -1488,8 +1475,6 @@ lozChess.prototype.newGameInit = function () {
 
   this.board.ttInit();
   this.uci.numMoves = 0;
-
-  this.mistakes = 0;
 }
 
 //}}}
@@ -1583,10 +1568,10 @@ lozChess.prototype.go = function() {
       //{{{  research
       
       if (score >= beta) {
-        //this.uci.debug('BETA', ply, score, '>=', beta);
+        this.uci.debug('BETA', ply, score, '>=', beta);
       }
       else {
-        //this.uci.debug('ALPHA', ply, score, '<=', alpha);
+        this.uci.debug('ALPHA', ply, score, '<=', alpha);
         if (totTime > 30000) {
           movTime              = movTime / 2 | 0;
           this.stats.moveTime += movTime;
@@ -1616,21 +1601,18 @@ lozChess.prototype.go = function() {
     ply += 1;
   }
 
-  //console.log('lozza',ply);
-
   this.stats.update();
   this.stats.stop();
 
   bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
 
-  if (lozzaHost == HOST_WEB)
-    board.makeMove(this.rootNode,this.stats.bestMove);
+  board.makeMove(this.rootNode,this.stats.bestMove);
 
   this.uci.send('bestmove',bestMoveStr);
 
   //this.uci.debug(board.initNumWhitePieces,board.initNumWhitePawns,board.initNumBlackPieces,board.initNumBlackPawns);
-  //this.uci.debug(spec.board + ' ' + spec.turn + ' ' + spec.rights + ' ' + spec.ep);
-  //this.uci.debug(BUILD + ' ' + spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.nodes+'n','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
+  this.uci.debug(spec.board + ' ' + spec.turn + ' ' + spec.rights + ' ' + spec.ep);
+  this.uci.debug(BUILD + ' ' + spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.nodes+'n','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
 }
 
 //}}}
@@ -1673,7 +1655,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
   else
     board.genMoves(node, turn);
 
-  this.stats.checkTime();
   if (this.stats.timeOut)
     return;
 
@@ -1749,18 +1730,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
       return;
     }
 
-    //{{{  make mistakes?
-    
-    if (this.mistakes) {
-      if (Math.random() <= 1.0/(this.uci.spec.depth * this.uci.spec.depth)) {
-        var mm = Math.random() + Math.random();
-        this.uci.debug('blunder, changed score of ',board.formatMove(move,SAN_FMT),' from ',score,' to ',score*mm|0);
-        score = score * mm | 0;
-      }
-    }
-    
-    //}}}
-
     if (score > bestScore) {
       if (score > alpha) {
         if (score >= beta) {
@@ -1792,6 +1761,15 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         
         this.uci.send('info',this.stats.nodeStr(),'depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',pvStr);
         this.stats.update();
+        
+        //if (!board.ttGetMove(node))
+          //this.uci.debug('TT AWOL FOR',mv);
+        
+        //if (!pvStr)
+          //this.uci.debug('NULL PV FOR',mv);
+        
+        //if (pvStr.indexOf(mv) != 0)
+          //this.uci.debug('WRONG PV FOR',mv);
         
         if (this.stats.splits > 5)
           this.uci.send('info hashfull',Math.round(1000*board.hashUsed/TTSIZE));
@@ -2003,7 +1981,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   else
     board.genMoves(node, turn);
 
-  this.stats.checkTime();
   if (this.stats.timeOut)
     return;
 
@@ -2236,6 +2213,15 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
       alpha = score;
     }
   }
+
+  //{{{  no moves?
+  
+  if (inCheck && numLegalMoves == 0) {
+  
+     return -MATE + node.ply;
+  }
+  
+  //}}}
 
   return alpha;
 }
@@ -2659,11 +2645,6 @@ lozBoard.prototype.position = function () {
   
   this.loHash ^= this.loEP[this.ep];
   this.hiHash ^= this.hiEP[this.ep];
-  
-  //}}}
-  //{{{  board hmc
-  
-  this.repHi = spec.hmc;
   
   //}}}
 
@@ -4153,15 +4134,6 @@ lozBoard.prototype.evaluate = function (turn) {
   var bNumKnights = this.bCounts[KNIGHT];
   var bNumPawns   = this.bCounts[PAWN];
   
-  var wNumMajors  = wNumQueens + wNumRooks;
-  var bNumMajors  = bNumQueens + bNumRooks;
-  
-  var wNumMinors  = wNumBishops + wNumKnights;
-  var bNumMinors  = bNumBishops + bNumKnights;
-  
-  var wNumPieces  = wNumMinors + wNumMajors + wNumPawns
-  var bNumPieces  = bNumMinors + bNumMajors + bNumPawns
-  
   var wKingSq   = this.wList[0];
   var wKingRank = RANK[wKingSq];
   var wKingFile = FILE[wKingSq];
@@ -4188,52 +4160,40 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  draw?
   
-  var isDraw = false;
+  //todo - lots more here and drawish.
   
   if (numPieces == 2)                                                                  // K v K.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))    // K v K+N|B.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 4 && (wNumKnights || wNumBishops) && (bNumKnights || bNumBishops))  // K+N|B v K+N|B.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 4 && (wNumKnights == 2 || bNumKnights == 2))                        // K v K+NN.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 5 && wNumKnights == 2 && (bNumKnights || bNumBishops))              //
-    isDraw = true;
+    return CONTEMPT;                                                                   //
                                                                                        // K+N|B v K+NN
   if (numPieces == 5 && bNumKnights == 2 && (wNumKnights || wNumBishops))              //
-    isDraw = true;
+    return CONTEMPT;                                                                   //
   
   if (numPieces == 5 && wNumBishops == 2 && bNumBishops)                               //
-    isDraw = true;
+    return CONTEMPT;                                                                   //
                                                                                        // K+B v K+BB
   if (numPieces == 5 && bNumBishops == 2 && wNumBishops)                               //
-    isDraw = true;
+    return CONTEMPT;                                                                   //
   
   if (numPieces == 4 && wNumRooks && bNumRooks)                                        // K+R v K+R.
-    isDraw = true;
+    return CONTEMPT;
   
   if (numPieces == 4 && wNumQueens && bNumQueens)                                      // K+Q v K+Q.
-    isDraw = true;
-  
-  if (isDraw) {
-    //{{{  verbose
-    
-    if (this.verbose) {
-      uci.send('----');
-      uci.send('Draw');
-      uci.send('----');
-    }
-    
-    //}}}
     return CONTEMPT;
-  }
   
   //}}}
+
   //{{{  P
   
   //{{{  vars valid if hash used or not
@@ -5009,7 +4969,7 @@ lozBoard.prototype.evaluate = function (turn) {
       to = fr + 13;  while (!b[to]) {att += BKZ[to]; to += 13; mob++;} mob += MOB_QIS[b[to]]; att += BKZ[to] * MOB_QIS[b[to]];
       to = fr - 13;  while (!b[to]) {att += BKZ[to]; to -= 13; mob++;} mob += MOB_QIS[b[to]]; att += BKZ[to] * MOB_QIS[b[to]];
       
-      mobS += (mob * MOB_QS) / 2 | 0;
+      mobS += mob * MOB_QS;
       mobE += mob * MOB_QE;
       
       if (att) {
@@ -5225,7 +5185,7 @@ lozBoard.prototype.evaluate = function (turn) {
       to = fr + 13;  while (!b[to]) {att += WKZ[to]; to += 13; mob++;} mob += MOB_QIS[b[to]]; att += WKZ[to] * MOB_QIS[b[to]];
       to = fr - 13;  while (!b[to]) {att += WKZ[to]; to -= 13; mob++;} mob += MOB_QIS[b[to]]; att += WKZ[to] * MOB_QIS[b[to]];
       
-      mobS -= (mob * MOB_QS) / 2 | 0;
+      mobS -= mob * MOB_QS;
       mobE -= mob * MOB_QE;
       
       if (att) {
@@ -5265,6 +5225,7 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   
   //}}}
+
   //{{{  trapped
   
   var trappedS = 0;
@@ -5367,6 +5328,7 @@ lozBoard.prototype.evaluate = function (turn) {
   }
   
   //}}}
+
   //{{{  combine
   
   var evalS = this.runningEvalS;
@@ -5451,75 +5413,30 @@ lozBoard.prototype.evaluate = function (turn) {
   var e = (evalS * ((256 - this.gPhase) / 256) | 0) + (evalE * ((this.gPhase) / 256) | 0);
   
   //}}}
-  //{{{  taper
-  
-  var m1      = 1.0;
-  var drawish = this.repHi - this.repLo;
-  
-  if ((this.gPhase > EPHASE) && (drawish > 8)) {
-    if (drawish > 100)
-      drawish = 100;
-    m1 = (101.0 - drawish) / 100.0;
-  }
-  
-  //}}}
-  //{{{  no pawns
-  
-  var m2 = 1.0;
-  
-  //if (!bNumPawns && !wNumPawns) {
-    //var mDelta = Math.abs(this.runningEvalE);
-    //if (mDelta < 400)
-      //m2 = 0.25;
-    //else if (mDelta < 700 && !bNumMajors && !wNumMajors)
-      //m2 = 0.50;
-    //else
-      //m2 = 0.90;
-  //}
-  
-  //}}}
-
-  var e2 = e * m1 * m2 | 0;
-
   //{{{  verbose
   
   if (this.verbose) {
-    uci.send('info string','final eval =',e2);
-    uci.send('info string','-----');
-    uci.send('info string','no pawns multiplier =',               m2);
-    uci.send('info string','nearing fifty move rule multiplier =',m1);
-    uci.send('info string','-----');
-    uci.send('info string','phased eval =',e);
-    uci.send('info string','game phase (0 to 256) =',this.gPhase);
-    uci.send('info string','turn (0=w,1=b) =',turn);
-    uci.send('info string','-----');
-    uci.send('info string','initial eval:',   'MG =',evalS,            ', EG =',evalE);
-    uci.send('info string','trapped bn:',     'MG =',trappedS,         ', EG =',trappedE);
-    uci.send('info string','mobility:',       'MG =',mobS,             ', EG =',mobE);
-    uci.send('info string','attacks:',        'MG =',attS,             ', EG =',attE);
-    uci.send('info string','king:',           'MG =',kingS,            ', EG =',kingE);
-    uci.send('info string','queens:',         'MG =',queensS,          ', EG =',queensE);
-    uci.send('info string','rooks:',          'MG =',rooksS,           ', EG =',rooksE);
-    uci.send('info string','bishops:',        'MG =',bishopsS,         ', EG =',bishopsE);
-    uci.send('info string','knights:',        'MG =',knightsS,         ', EG =',knightsE);
-    uci.send('info string','pawns:',          'MG =',pawnsS,           ', EG =',pawnsE);
-    uci.send('info string','tempo:',          'MG =',tempoS,           ', EG =',tempoE);
-    uci.send('info string','material:',       'MG =',this.runningEvalS,', EG =',this.runningEvalE);
-    uci.send('info string','-----');
-    uci.send('info string','num pieces (ex. k):','W =', wNumPieces,       ', B =', bNumPieces);
-    uci.send('info string','num majors (q+r):',  'W =', wNumMajors,       ', B =', bNumMajors);
-    uci.send('info string','num minors (b+n):',  'W =', wNumMinors,       ', B =', bNumMinors);
-    uci.send('info string','num pawns:',         'W =', wNumPawns,        ', B =', bNumPawns);
-    uci.send('info string','-----');
-    uci.send('info string','home pawn:','W =', wHome != 0,', B =', bHome != 0);
+    uci.send('info string','phased eval',    'PH',this.gPhase,      'VAL',e);
+    uci.send('info string','evaluation',     'MG',evalS,            'EG',evalE);
+    uci.send('info string','trapped',        'MG',trappedS,         'EG',trappedE);
+    uci.send('info string','mobility',       'MG',mobS,             'EG',mobE);
+    uci.send('info string','attacks',        'MG',attS,             'EG',attE);
+    uci.send('info string','material',       'MG',this.runningEvalS,'EG',this.runningEvalE);
+    uci.send('info string','king',           'MG',kingS,            'EG',kingE);
+    uci.send('info string','queens',         'MG',queensS,          'EG',queensE);
+    uci.send('info string','rooks',          'MG',rooksS,           'EG',rooksE);
+    uci.send('info string','bishops',        'MG',bishopsS,         'EG',bishopsE);
+    uci.send('info string','knights',        'MG',knightsS,         'EG',knightsE);
+    uci.send('info string','pawns',          'MG',pawnsS,           'EG',pawnsE);
+    uci.send('info string','home pawn',      'W', wHome != 0,       'B', bHome != 0);
+    uci.send('info string','tempo',          'MG',tempoS,           'EG',tempoE);
   }
   
   //}}}
 
-  if (turn == WHITE)
-    return e2;
-  else
-    return -e2;
+  e *= ((-turn >> 31) | 1);
+
+  return e;
 }
 
 //}}}
@@ -6530,8 +6447,6 @@ onmessage = function(e) {
     uci.tokens  = uci.message.split(' ');
     uci.command = uci.tokens[0];
 
-    //console.log(e.data);
-
     if (!uci.command)
       continue;
 
@@ -6561,8 +6476,6 @@ onmessage = function(e) {
     }
     
     //}}}
-
-    //console.log('uci',uci.command);
 
     switch (uci.command) {
 
@@ -6630,69 +6543,6 @@ onmessage = function(e) {
       
       //}}}
 
-    case 'mistakes':
-      //{{{  mistakes
-      
-      lozza.mistakes = uci.getInt('mistakes',0);
-      
-      break;
-      
-      //}}}
-
-    case 'pvalue':
-      //{{{  pvalue
-      
-      VALUE_PAWN    = uci.getInt('pawn',VALUE_PAWN);
-      VALUE_KNIGHT  = uci.getInt('knight',VALUE_KNIGHT);
-      VALUE_BISHOP  = uci.getInt('bishop',VALUE_BISHOP);
-      VALUE_ROOK    = uci.getInt('rook',VALUE_ROOK);
-      VALUE_QUEEN   = uci.getInt('queen',VALUE_QUEEN);
-      
-      VALUE_VECTOR = [0,VALUE_PAWN,VALUE_KNIGHT,VALUE_BISHOP,VALUE_ROOK,VALUE_QUEEN,VALUE_KING];
-      
-      //console.log('pvalue',VALUE_VECTOR);
-      
-      break;
-      
-      //}}}
-
-    case 'pstsquare':
-      //{{{  pstsquare
-      
-      var piece = uci.getInt('piece',0);
-      var sq    = uci.getInt('sq',0);
-      var mid   = uci.getInt('mid',0);
-      var end   = uci.getInt('end',0);
-      
-      if (mid)
-        WS_PST[piece][sq] = mid;
-      
-      if (end)
-        WE_PST[piece][sq] = end;
-      
-      _pst2Black(WPAWN_PSTS,   BPAWN_PSTS);
-      _pst2Black(WPAWN_PSTE,   BPAWN_PSTE);
-      _pst2Black(WKNIGHT_PSTS, BKNIGHT_PSTS);
-      _pst2Black(WKNIGHT_PSTE, BKNIGHT_PSTE);
-      _pst2Black(WBISHOP_PSTS, BBISHOP_PSTS);
-      _pst2Black(WBISHOP_PSTE, BBISHOP_PSTE);
-      _pst2Black(WROOK_PSTS,   BROOK_PSTS);
-      _pst2Black(WROOK_PSTE,   BROOK_PSTE);
-      _pst2Black(WQUEEN_PSTS,  BQUEEN_PSTS);
-      _pst2Black(WQUEEN_PSTE,  BQUEEN_PSTE);
-      _pst2Black(WKING_PSTS,   BKING_PSTS);
-      _pst2Black(WKING_PSTE,   BKING_PSTE);
-      
-      //console.log('set pst','piece',piece,'sq',sq,'mid',mid,'end',end);
-      //console.log('ws',WS_PST[piece]);
-      //console.log('we',WE_PST[piece]);
-      //console.log('bs',BS_PST[piece]);
-      //console.log('be',BE_PST[piece]);
-      
-      break;
-      
-      //}}}
-
     case 'ucinewgame':
       //{{{  ucinewgame
       
@@ -6731,7 +6581,7 @@ onmessage = function(e) {
       
       uci.send('id name Lozza',BUILD);
       uci.send('id author Colin Jenkins');
-      //uci.send('option');
+      uci.send('option');
       uci.send('uciok');
       
       break;
@@ -6742,15 +6592,6 @@ onmessage = function(e) {
       //{{{  isready
       
       uci.send('readyok');
-      
-      break;
-      
-      //}}}
-
-    case 'stop':
-      //{{{  stop
-      
-      lozza.stats.timeOut = 1;
       
       break;
       
@@ -6835,6 +6676,10 @@ onmessage = function(e) {
 //}}}
 
 //}}}
+
+//if (lozzaHost == HOST_NODEJS) {
+  //%NeverOptimizeFunction(lozBoard.prototype.ttInit);  // can be uncommented if using google chrome browser
+//}
 
 var lozza         = new lozChess()
 lozza.board.lozza = lozza;
