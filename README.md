@@ -20,4 +20,6 @@ https://github.com/jquery/jquery
 
 https://github.com/topics/bootstrap
 
+http://www.talkchess.com/forum/viewtopic.php?t=55104
+
 
