@@ -1,10 +1,13 @@
-
+//
 // https://github.com/op12no2
+//
 
-var BUILD = "1.18";
+var BUILD = "2.0";
 
 //{{{  history
 /*
+
+1.19 Simplify phase and eval calc.
 
 1.18 Don't move king adjacent to king.
 1.18 Fix black king endgame PST.
@@ -615,6 +618,9 @@ Math.seedrandom('Lozza rules OK');  //always generates the same sequence of PRNs
 //}}}
 //{{{  constants
 
+var VALUE_VECTOR = [0,100,325,325,500,1000,10000];
+var VALUE_PAWN   = VALUE_VECTOR[1];
+
 var MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits.
 var MAX_MOVES       = 250;
 var INFINITY        = 30000;              // limited by lozza.board.ttScore bits.
@@ -734,7 +740,7 @@ var RPHASE = 2;
 var QPHASE = 4;
 var VPHASE = [0,PPHASE,NPHASE,BPHASE,RPHASE,QPHASE,0];
 var TPHASE = PPHASE*16 + NPHASE*4 + BPHASE*4 + RPHASE*4 + QPHASE*2;
-var EPHASE = 180;
+var EPHASE = 16;  //  Don't do Q futility after this.
 
 var A1 = 110;
 var B1 = 111;
@@ -869,14 +875,7 @@ var KING_OFFSETS    = [11,-11,13,-13,1,-1,12,-12];
 var OFFSETS = [0,0,KNIGHT_OFFSETS,BISHOP_OFFSETS,ROOK_OFFSETS,QUEEN_OFFSETS,KING_OFFSETS];
 var LIMITS  = [0,1,1,8,8,8,1];
 
-var VALUE_PAWN   = 100;
-var VALUE_KNIGHT = 325;
-var VALUE_BISHOP = 325;
-var VALUE_ROOK   = 500;
-var VALUE_QUEEN  = 1000;
-var VALUE_KING   = 10000;
-var VALUE_VECTOR = [0,VALUE_PAWN,VALUE_KNIGHT,VALUE_BISHOP,VALUE_ROOK,VALUE_QUEEN,VALUE_KING];
-var RANK_VECTOR  = [0,1,         2,           2,           4,         5,          6];  // for move sorting.
+var RANK_VECTOR  = [0,1,2,2,4,5,6];  // for move sorting.
 
 var NULL_PST =        [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -1887,7 +1886,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var E         = 0;
   var lonePawns = (turn == WHITE && board.wCount == board.wCounts[PAWN]+1) || (turn == BLACK && board.bCount == board.bCounts[PAWN]+1);
   var standPat  = board.evaluate(turn);
-  var gPhase    = board.gPhase;
   var doBeta    = !pvNode && !inCheck && !lonePawns && nullOK == NULL_Y && !board.betaMate(beta);
 
   //{{{  prune?
@@ -2128,7 +2126,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
   var board         = this.board;
   var standPat      = board.evaluate(turn);
-  var gPhase        = board.gPhase;
+  var phase         = board.cleanPhase(board.phase);
   var numLegalMoves = 0;
   var nextTurn      = ~turn & COLOR_MASK;
   var move          = 0;
@@ -2185,7 +2183,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
     //{{{  futile?
     
-    if (!inCheck && gPhase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
     
       board.unmakeMove(node,move);
     
@@ -2332,11 +2330,11 @@ const PTTMASK = PTTSIZE - 1;
 
 function lozBoard () {
 
-  this.initNumWhitePieces = 0;
-  this.initNumBlackPieces = 0;
+  //this.initNumWhitePieces = 0;
+  //this.initNumBlackPieces = 0;
 
-  this.initNumWhitePawns  = 0;
-  this.initNumBlackPawns  = 0;
+  //this.initNumWhitePawns  = 0;
+  //this.initNumBlackPawns  = 0;
 
   this.lozza        = null;
   this.verbose      = false;
@@ -2447,8 +2445,7 @@ function lozBoard () {
   for (var i=0; i < 1000; i++)
     this.repHiHash[i] = 0;
 
-  this.phase  = TPHASE;
-  this.gPhase = 0;
+  this.phase = TPHASE;
 
   this.wCounts = new Uint16Array(7);
   this.bCounts = new Uint16Array(7);
@@ -2476,11 +2473,11 @@ function lozBoard () {
 
 lozBoard.prototype.init = function () {
 
-  this.initNumWhitePieces = 0;
-  this.initNumBlackPieces = 0;
+  //this.initNumWhitePieces = 0;
+  //this.initNumBlackPieces = 0;
 
-  this.initNumWhitePawns  = 0;
-  this.initNumBlackPawns  = 0;
+  //this.initNumWhitePawns  = 0;
+  //this.initNumBlackPawns  = 0;
 
   for (var i=0; i < this.b.length; i++)
     this.b[i] = EDGE;
@@ -2500,8 +2497,7 @@ lozBoard.prototype.init = function () {
   this.repLo = 0;
   this.repHi = 0;
 
-  this.phase  = TPHASE;
-  this.gPhase = 0;
+  this.phase = TPHASE;
 
   for (var i=0; i < this.wCounts.length; i++)
     this.wCounts[i] = 0;
@@ -2533,12 +2529,6 @@ lozBoard.prototype.init = function () {
 lozBoard.prototype.position = function () {
 
   var spec = lozza.uci.spec;
-
-  this.initNumWhitePieces = 0;
-  this.initNumBlackPieces = 0;
-
-  this.initNumWhitePawns  = 0;
-  this.initNumBlackPawns  = 0;
 
   //{{{  board turn
   
@@ -2708,12 +2698,6 @@ lozBoard.prototype.position = function () {
     if (!this.playMove(spec.moves[i]))
       return 0;
   }
-
-  this.initNumWhitePawns  = this.wCounts[PAWN];
-  this.initNumWhitePieces = this.wCount - this.initNumWhitePawns;
-
-  this.initNumBlackPawns  = this.bCounts[PAWN];
-  this.initNumBlackPieces = this.bCount - this.initNumBlackPawns;
 
   this.compact();
 
@@ -4110,15 +4094,7 @@ lozBoard.prototype.evaluate = function (turn) {
   var uci = this.lozza.uci;
   var b   = this.b;
   
-  var phase = this.phase;
-  
-  if (phase < 0)            // because of say 3 queens early on.
-    phase = 0;
-  
-  if (phase > TPHASE)
-    phase = TPHASE;
-  
-  this.gPhase = (phase << 8) / TPHASE + 0.5 | 0;
+  var phase = this.cleanPhase(this.phase);
   
   var numPieces = this.wCount + this.bCount;
   
@@ -5334,51 +5310,6 @@ lozBoard.prototype.evaluate = function (turn) {
   var evalS = this.runningEvalS;
   var evalE = this.runningEvalE;
   
-  var numWhitePieces = this.wCount - wNumPawns;
-  var numBlackPieces = this.bCount - bNumPawns;
-  
-  var ahead  = 0;
-  var behind = 0;
-  
-  if (this.turn == WHITE) {
-    if (evalS > 120)
-       ahead=1;
-    else if (evalS < -120)
-      behind=1;
-  }
-  else {
-    if (evalS > 120)
-      behind=1;
-    else if (evalS < -120)
-      ahead=1;
-  }
-  
-  if (ahead) {
-    if (this.turn == WHITE) {
-      //evalS += (this.initNumBlackPieces-numBlackPieces)*20;
-      //evalE += (this.initNumBlackPieces-numBlackPieces)*20;
-    }
-    else {
-      //evalS -= (this.initNumWhitePieces-numWhitePieces)*20;
-      //evalE -= (this.initNumWhitePieces-numWhitePieces)*20;
-    }
-  }
-  
-  else if (behind) {
-    if (this.turn == WHITE) {
-      //evalS -= (this.initNumWhitePieces-numWhitePieces)*20;
-      //evalS += (this.initNumBlackPawns-bNumPawns)*20;
-      //evalE -= (this.initNumWhitePieces-numWhitePieces)*20;
-      //evalE += (this.initNumBlackPawns-bNumPawns)*20;
-    }
-    else {
-      //evalS += (this.initNumBlackPieces-numBlackPieces)*20;
-      //evalS -= (this.initNumWhitePawns-wNumPawns)*20;
-      //evalE += (this.initNumBlackPieces-numBlackPieces)*20;
-      //evalE -= (this.initNumWhitePawns-wNumPawns)*20;
-    }
-  }
-  
   evalS += mobS;
   evalE += mobE;
   
@@ -5409,14 +5340,15 @@ lozBoard.prototype.evaluate = function (turn) {
   evalS += kingS;
   evalE += kingE;
   
-  //var e = ((evalS * (256 - this.gPhase)) + (evalE * this.gPhase)) >> 8;
-  var e = (evalS * ((256 - this.gPhase) / 256) | 0) + (evalE * ((this.gPhase) / 256) | 0);
+  var e = (evalS * (TPHASE - phase) + evalE * phase) / TPHASE;
+  
+  e = Math.round(e) | 0;
   
   //}}}
   //{{{  verbose
   
   if (this.verbose) {
-    uci.send('info string','phased eval',    'PH',this.gPhase,      'VAL',e);
+    uci.send('info string','phased eval',    'PH',this.phase,       'VAL',e);
     uci.send('info string','evaluation',     'MG',evalS,            'EG',evalE);
     uci.send('info string','trapped',        'MG',trappedS,         'EG',trappedE);
     uci.send('info string','mobility',       'MG',mobS,             'EG',mobE);
@@ -5434,9 +5366,10 @@ lozBoard.prototype.evaluate = function (turn) {
   
   //}}}
 
-  e *= ((-turn >> 31) | 1);
-
-  return e;
+  if (turn == WHITE)
+    return e;
+  else
+    return -e;
 }
 
 //}}}
@@ -5775,6 +5708,20 @@ lozBoard.prototype.betaMate = function (score) {
 lozBoard.prototype.alphaMate = function (score) {
 
   return (score <= -MINMATE && score >= -MATE)
+}
+
+//}}}
+//{{{  .cleanPhase
+
+lozBoard.prototype.cleanPhase = function (p) {
+
+  if (p <= 0)            // because of say 3 queens early on.
+    return 0;
+
+  else if (p >= TPHASE)  // jic.
+    return TPHASE;
+
+  return p;
 }
 
 //}}}
@@ -6676,10 +6623,6 @@ onmessage = function(e) {
 //}}}
 
 //}}}
-
-//if (lozzaHost == HOST_NODEJS) {
-  //%NeverOptimizeFunction(lozBoard.prototype.ttInit);  // can be uncommented if using google chrome browser
-//}
 
 var lozza         = new lozChess()
 lozza.board.lozza = lozza;
