@@ -7,9 +7,10 @@ var BUILD = "2.0";
 //{{{  history
 /*
 
-1.19 Simplify phase and eval calc.
+2.00 Don't return mate scores from Q search.
+2.00 Simplify phase and eval calc.
 
-1.18 Don't move king adjacent to king.
+1.18 Don't pseudo-move king adjacent to king.
 1.18 Fix black king endgame PST.
 1.18 Fix tapered eval calc.
 1.18 Fix alpha/beta mate predicates.
@@ -2211,15 +2212,6 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
       alpha = score;
     }
   }
-
-  //{{{  no moves?
-  
-  if (inCheck && numLegalMoves == 0) {
-  
-     return -MATE + node.ply;
-  }
-  
-  //}}}
 
   return alpha;
 }
