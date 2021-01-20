@@ -8,7 +8,7 @@ They are designed to be mobile-friendly.  There is no app for the user interface
 
 The mate-in-one game sounds easy, but it's often hard to see the mate quickly.
 
-## Credits
+## Acknowledgements
 
 https://github.com/oakmac/chessboardjs
 
