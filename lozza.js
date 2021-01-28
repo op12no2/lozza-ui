@@ -7,7 +7,8 @@ var BUILD = "2.00";
 //{{{  history
 /*
 
-2.00 Used tuned piece values and PSTs using Texel method on Zurichess's quiet-labelled.epd.
+2.00 Remove support for jsUCI (the V8 engine in it is too old).
+2.00 Use tuned piece values and PSTs (used Texel method on Zurichess's quiet-labelled.epd).
 2.00 No early phase bishop pair bonus (affected tuning too much).
 2.00 Rearrange eval params so they can be tuned.
 2.00 Simplify phase and eval calc.
@@ -197,19 +198,21 @@ var BUILD = "2.00";
 //}}}
 //{{{  detect host
 
-var HOST_WEB     = 0;
+var HOST_WORKER  = 0;
 var HOST_NODEJS  = 1;
-var HOST_JSUCI   = 2;
-var HOSTS        = ['Web','Node','jsUCI'];
-var lozzaHost    = HOST_WEB;
+var HOST_CONSOLE = 2;
+
+var HOSTS = ['Web Worker','Node','Console'];
+
+var lozzaHost = HOST_WORKER;
 
 if ((typeof process) != 'undefined')
 
   lozzaHost = HOST_NODEJS;
 
-else if ((typeof lastMessage) != 'undefined')
+else if ((typeof WorkerGlobalScope) == 'undefined')
 
-  lozzaHost = HOST_JSUCI;
+  lozzaHost = HOST_CONSOLE;
 
 //}}}
 //{{{  seed
@@ -1772,13 +1775,10 @@ lozChess.prototype.go = function() {
 
   bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
 
-  board.makeMove(this.rootNode,this.stats.bestMove);
+  if (lozzaHost == HOST_WORKER)
+    board.makeMove(this.rootNode,this.stats.bestMove);
 
   this.uci.send('bestmove',bestMoveStr);
-
-  //this.uci.debug(board.initNumWhitePieces,board.initNumWhitePawns,board.initNumBlackPieces,board.initNumBlackPawns);
-  this.uci.debug(spec.board + ' ' + spec.turn + ' ' + spec.rights + ' ' + spec.ep);
-  this.uci.debug(BUILD + ' ' + spec.depth+'p','|',this.stats.nodesMega+'Mn','|',this.stats.nodes+'n','|',this.stats.timeSec+'s','|',bestMoveStr,'|',board.formatMove(this.stats.bestMove,SAN_FMT));
 }
 
 //}}}
@@ -1927,15 +1927,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         
         this.uci.send('info',this.stats.nodeStr(),'depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',pvStr);
         this.stats.update();
-        
-        //if (!board.ttGetMove(node))
-          //this.uci.debug('TT AWOL FOR',mv);
-        
-        //if (!pvStr)
-          //this.uci.debug('NULL PV FOR',mv);
-        
-        //if (pvStr.indexOf(mv) != 0)
-          //this.uci.debug('WRONG PV FOR',mv);
         
         if (this.stats.splits > 5)
           this.uci.send('info hashfull',myround(1000*board.hashUsed/TTSIZE));
@@ -2672,7 +2663,7 @@ lozBoard.prototype.init = function () {
   this.firstBP = 0;
   this.firstWP = 0;
 
-  if (lozzaHost == HOST_WEB)
+  if (lozzaHost == HOST_WORKER)
     this.mvFmt = SAN_FMT;
   else
     this.mvFmt = UCI_FMT;
@@ -6464,14 +6455,11 @@ lozUCI.prototype.post = function (s) {
   if (lozzaHost == HOST_NODEJS)
     this.nodefs.writeSync(1, s + '\n');
 
-  else if (lozzaHost == HOST_JSUCI)
-    postMessage(s);
-
-  else if (lozzaHost == HOST_WEB)
+  else if (lozzaHost == HOST_WORKER)
     postMessage(s);
 
   else
-    console.log(s);                      // for debug w/o worker.
+    console.log(s);
 }
 
 //}}}
@@ -6716,10 +6704,12 @@ onmessage = function(e) {
     case 'uci':
       //{{{  uci
       
-      uci.send('id name Lozza',BUILD);
-      uci.send('id author Colin Jenkins');
-      uci.send('option');
-      uci.send('uciok');
+      if (lozzaHost != HOST_WORKER) {
+        uci.send('id name Lozza',BUILD);
+        uci.send('id author Colin Jenkins');
+        uci.send('option');
+        uci.send('uciok');
+      }
       
       break;
       
