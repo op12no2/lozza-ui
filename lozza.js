@@ -2533,9 +2533,13 @@ function lozBoard () {
   this.pttwMost  = new Uint32Array(PTTSIZE);
   this.pttbMost  = new Uint32Array(PTTSIZE);
 
-  this.ttInit();
+  for (var i=0; i < TTSIZE; i++)
+    this.ttType[i] = TT_EMPTY;
 
-  this.turn = 0;
+  for (var i=0; i < PTTSIZE; i++)
+    this.pttFlags[i] = TT_EMPTY;
+
+  this.turn     = 0;
 
   //{{{  Zobrist turn
   
