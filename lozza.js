@@ -2738,7 +2738,7 @@ lozBoard.prototype.init = function () {
 
 lozBoard.prototype.position = function () {
 
-  var spec = lozza.uci.spec;
+  const spec = lozza.uci.spec;
 
   //{{{  board turn
   
@@ -4253,6 +4253,7 @@ lozBoard.prototype.evaluate = function (turn) {
   const b   = this.b;
   
   const phase = this.cleanPhase(this.phase);
+  const turnM = (-turn >> 31) | 1;
   
   const numPieces = this.wCount + this.bCount;
   
@@ -4282,8 +4283,8 @@ lozBoard.prototype.evaluate = function (turn) {
   const bKingBits = (bKingFile-1) << 2;
   const bKingMask = 0xF << bKingBits;
   
-  var bonus   = 0;  // generic.
-  var penalty = 0;  // generic.
+  let bonus   = 0;  // generic.
+  let penalty = 0;  // generic.
   
   const WKZ = WKZONES[wKingSq];
   const BKZ = BKZONES[bKingSq];
@@ -4847,10 +4848,8 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  K
   
-  var penalty = 0;
-  
-  var kingS = 0;
-  var kingE = 0;
+  let kingS = 0;
+  let kingE = 0;
   
   if (wCanBeAttacked) {
     //{{{  shelter
@@ -4927,44 +4926,45 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  NBRQ
   
-  var mobS = 0;
-  var mobE = 0;
+  let mobS = 0;
+  let mobE = 0;
   
-  var attS = 0;
-  var attE = 0;
+  let attS = 0;
+  let attE = 0;
   
-  var knightsS = 0;
-  var knightsE = 0;
+  let knightsS = 0;
+  let knightsE = 0;
   
-  var bishopsS = 0;
-  var bishopsE = 0;
+  let bishopsS = 0;
+  let bishopsE = 0;
   
-  var rooksS = 0;
-  var rooksE = 0;
+  let rooksS = 0;
+  let rooksE = 0;
   
-  var queensS = 0;
-  var queensE = 0;
+  let queensS = 0;
+  let queensE = 0;
   
   //{{{  white
   
-  var mob     = 0;
-  var to      = 0;
-  var fr      = 0;
-  var frObj   = 0;
-  var frRank  = 0;
-  var frFile  = 0;
-  var frBits  = 0;
-  var frMask  = 0;
-  var rDist   = 0;
-  var fDist   = 0;
-  var wBishop = 0;
-  var bBishop = 0;
-  var attackN = 0;
-  var attackV = 0;
-  var att     = 0;
+  let mob     = 0;
+  let to      = 0;
+  let fr      = 0;
+  let frObj   = 0;
+  let frRank  = 0;
+  let frFile  = 0;
+  let frBits  = 0;
+  let frMask  = 0;
+  let rDist   = 0;
+  let fDist   = 0;
+  let wBishop = 0;
+  let bBishop = 0;
+  let attackN = 0;
+  let attackV = 0;
+  let att     = 0;
+  let outpost = 0;
   
-  var pList  = this.wList;
-  var pCount = this.wCount - 1 - wNumPawns;
+  let pList  = this.wList;
+  let pCount = this.wCount - 1 - wNumPawns;
   
   next  = 1;  // ignore king.
   count = 0;
@@ -5009,7 +5009,7 @@ lozBoard.prototype.evaluate = function (turn) {
       
       //{{{  outpost
       
-      var outpost = WOUTPOST[fr];
+      outpost = WOUTPOST[fr];
       
       if (outpost) {
       
@@ -5161,24 +5161,24 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  black
   
-  var mob     = 0;
-  var to      = 0;
-  var fr      = 0;
-  var frObj   = 0;
-  var frRank  = 0;
-  var frFile  = 0;
-  var frBits  = 0;
-  var frMask  = 0;
-  var rDist   = 0;
-  var fDist   = 0;
-  var wBishop = 0;
-  var bBishop = 0;
-  var attackN = 0;
-  var attackV = 0;
-  var att     = 0;
+  mob     = 0;
+  to      = 0;
+  fr      = 0;
+  frObj   = 0;
+  frRank  = 0;
+  frFile  = 0;
+  frBits  = 0;
+  frMask  = 0;
+  rDist   = 0;
+  fDist   = 0;
+  wBishop = 0;
+  bBishop = 0;
+  attackN = 0;
+  attackV = 0;
+  att     = 0;
   
-  var pList  = this.bList;
-  var pCount = this.bCount - 1 - bNumPawns;
+  pList  = this.bList;
+  pCount = this.bCount - 1 - bNumPawns;
   
   next  = 1;  // ignore king.
   count = 0;
@@ -5224,7 +5224,7 @@ lozBoard.prototype.evaluate = function (turn) {
       
       //{{{  outpost
       
-      var outpost = BOUTPOST[fr];
+      outpost = BOUTPOST[fr];
       
       if (outpost) {
       
@@ -5379,12 +5379,12 @@ lozBoard.prototype.evaluate = function (turn) {
 
   //{{{  trapped
   
-  var trappedS = 0;
-  var trappedE = 0;
+  let trappedS = 0;
+  let trappedE = 0;
+  
+  let trap = 0;
   
   //{{{  trapped bishops
-  
-  var trap = 0;
   
   if (wNumBishops) {
   
@@ -5468,22 +5468,15 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  tempo
   
-  if (turn == WHITE) {
-   var tempoS = TEMPO_S;
-   var tempoE = TEMPO_E;
-  }
-  
-  else {
-   var tempoS = -TEMPO_S;
-   var tempoE = -TEMPO_E;
-  }
+  let tempoS = TEMPO_S * turnM;
+  let tempoE = TEMPO_E * turnM;
   
   //}}}
 
   //{{{  combine
   
-  var evalS = this.runningEvalS;
-  var evalE = this.runningEvalE;
+  let evalS = this.runningEvalS;
+  let evalE = this.runningEvalE;
   
   evalS += mobS;
   evalE += mobE;
@@ -5515,7 +5508,7 @@ lozBoard.prototype.evaluate = function (turn) {
   evalS += kingS;
   evalE += kingE;
   
-  var e = (evalS * (TPHASE - phase) + evalE * phase) / TPHASE;
+  let e = (evalS * (TPHASE - phase) + evalE * phase) / TPHASE;
   
   e = myround(e) | 0;
   
@@ -5541,10 +5534,7 @@ lozBoard.prototype.evaluate = function (turn) {
   
   //}}}
 
-  if (turn == WHITE)
-    return e;
-  else
-    return -e;
+  return e * turnM;
 }
 
 //}}}
@@ -5561,7 +5551,7 @@ lozBoard.prototype.rand32 = function () {
 
 lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
 
-  var idx = this.loHash & TTMASK;
+  const idx = this.loHash & TTMASK;
 
   //if (this.ttType[idx] == TT_EXACT && this.loHash == this.ttLo[idx] && this.hiHash == this.ttHi[idx] && this.ttDepth[idx] > depth && this.ttScore[idx] > alpha && this.ttScore[idx] < beta) {
     //return;
@@ -5589,8 +5579,8 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
 
 lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
 
-  var idx   = this.loHash & TTMASK;
-  var type  = this.ttType[idx];
+  const idx   = this.loHash & TTMASK;
+  const type  = this.ttType[idx];
 
   node.hashMove = 0;
 
@@ -5598,8 +5588,8 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
     return TTSCORE_UNKNOWN;
   }
 
-  var lo = this.ttLo[idx];
-  var hi = this.ttHi[idx];
+  const lo = this.ttLo[idx];
+  const hi = this.ttHi[idx];
 
   if (lo != this.loHash || hi != this.hiHash) {
     return TTSCORE_UNKNOWN;
@@ -5616,7 +5606,7 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
     return TTSCORE_UNKNOWN;
   }
 
-  var score = this.ttScore[idx];
+  let score = this.ttScore[idx];
 
   if (score <= -MINMATE && score >= -MATE)
     score += node.ply;
@@ -5644,7 +5634,7 @@ lozBoard.prototype.ttGet = function (node, depth, alpha, beta) {
 
 lozBoard.prototype.ttGetMove = function (node) {
 
-  var idx = this.loHash & TTMASK;
+  const idx = this.loHash & TTMASK;
 
   if (this.ttType[idx] != TT_EMPTY && this.ttLo[idx] == this.loHash && this.ttHi[idx] == this.hiHash)
     return this.ttMove[idx];
@@ -5663,10 +5653,10 @@ lozBoard.prototype.ttInit = function () {
   this.ploHash = 0;
   this.phiHash = 0;
 
-  for (var i=0; i < TTSIZE; i++)
+  for (let i=0; i < TTSIZE; i++)
     this.ttType[i] = TT_EMPTY;
 
-  for (var i=0; i < PTTSIZE; i++)
+  for (let i=0; i < PTTSIZE; i++)
     this.pttFlags[i] = TT_EMPTY;
 
   this.hashUsed = 0;
@@ -5859,9 +5849,9 @@ lozBoard.prototype.getPVStr = function(node,move,depth) {
 
 lozBoard.prototype.addHistory = function (depth, move) {
 
-  var to      = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
-  var frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
-  var frPiece = frObj & PIECE_MASK;
+  const to      = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
+  const frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
+  const frPiece = frObj & PIECE_MASK;
 
   if ((frObj & COLOR_MASK) == WHITE) {
     this.wHistory[frPiece][to] += depth*depth;
