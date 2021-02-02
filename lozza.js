@@ -651,6 +651,60 @@ function pst2Black (from,to) {
 
 //{{{  constants
 
+//{{{  ev indexes
+
+var iMOB_NS               = 0;
+var iMOB_NE               = 1;
+var iMOB_BS               = 2;
+var iMOB_BE               = 3;
+var iMOB_RS               = 4;
+var iMOB_RE               = 5;
+var iMOB_QS               = 6;
+var iMOB_QE               = 7;
+var iATT_N                = 8;
+var iATT_B                = 9;
+var iATT_R                = 10;
+var iATT_Q                = 11;
+var iATT_M                = 12;
+var iPAWN_DOUBLED_S       = 13;
+var iPAWN_DOUBLED_E       = 14;
+var iPAWN_ISOLATED_S      = 15;
+var iPAWN_ISOLATED_E      = 16;
+var iPAWN_BACKWARD_S      = 17;
+var iPAWN_BACKWARD_E      = 18;
+var iPAWN_PASSED_OFFSET_S = 19;
+var iPAWN_PASSED_OFFSET_E = 20;
+var iPAWN_PASSED_MULT_S   = 21;
+var iPAWN_PASSED_MULT_E   = 22;
+var iTWOBISHOPS_S         = 23;
+var iROOK7TH_S            = 24;
+var iROOK7TH_E            = 25;
+var iROOKOPEN_S           = 26;
+var iROOKOPEN_E           = 27;
+var iQUEEN7TH_S           = 28;
+var iQUEEN7TH_E           = 29;
+var iTRAPPED              = 30;
+var iKING_PENALTY         = 31;
+var iPAWN_OFFSET_S        = 32;
+var iPAWN_OFFSET_E        = 33;
+var iPAWN_MULT_S          = 34;
+var iPAWN_MULT_E          = 35;
+var iPAWN_PASS_FREE       = 36;
+var iPAWN_PASS_UNSTOP     = 37;
+var iPAWN_PASS_KING1      = 38;
+var iPAWN_PASS_KING2      = 39;
+var iMOBOFF_NS            = 40;
+var iMOBOFF_NE            = 41;
+var iMOBOFF_BS            = 42;
+var iMOBOFF_BE            = 43;
+var iMOBOFF_RS            = 44;
+var iMOBOFF_RE            = 45;
+var iTWOBISHOPS_E         = 46;
+var iTEMPO_S              = 47;
+var iTEMPO_E              = 48;
+
+//}}}
+
 var MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits.
 var MAX_MOVES       = 250;
 var INFINITY        = 30000;              // limited by lozza.board.ttScore bits.
@@ -677,6 +731,8 @@ var M_BLACK = -1;                 // +1/-1 colour multiplier, compute with: (-tu
 
 var PIECE_MASK = 0x7;
 var COLOR_MASK = 0x8;
+
+var VALUE_PAWN = 100;             // safe - tuning root
 
 const TTSIZE = 1 << 24;
 const TTMASK = TTSIZE - 1;
@@ -958,6 +1014,20 @@ var  BSQUARE=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
+var NULL_PST =        [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+
+
 var MAP = [];
 
 MAP['p'] = B_PAWN;
@@ -995,11 +1065,11 @@ var DIST    = Array(144);
 
 //}}}
 
-//{{{  piece values and psts
+//{{{  tuned params
 
-var VALUE_PAWN = 100;
+//{{{  2/2
 
-var VALUE_VECTOR = [0,VALUE_PAWN,338,352,547,1094,10000];
+var VALUE_VECTOR = [0,100,338,352,547,1094,10000];
 
 var WPAWN_PSTS = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-15,-5,0,5,5,0,-5,-15,0,0,0,0,19,64,31,46,45,15,3,-30,0,0,0,0,-2,8,23,-1,37,45,16,-28,0,0,0,0,-14,10,2,14,17,3,3,-34,0,0,0,0,-29,-22,2,10,11,1,-22,-36,0,0,0,0,-23,-21,0,-9,-4,-1,5,-21,0,0,0,0,-36,-15,-25,-24,-41,3,3,-33,0,0,0,0,-15,-5,0,5,5,0,-5,-15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
@@ -1025,190 +1095,65 @@ var WQUEEN_PSTE = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-11,21,29
 
 var WKING_PSTE = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-125,-51,-36,-42,-17,12,-13,-37,0,0,0,0,-21,2,10,14,18,35,12,-2,0,0,0,0,-4,11,11,13,13,45,36,-3,0,0,0,0,-22,7,14,22,20,25,17,-12,0,0,0,0,-37,-20,9,15,17,11,-5,-27,0,0,0,0,-43,-25,-5,5,6,0,-14,-31,0,0,0,0,-53,-39,-17,-8,-5,-15,-29,-46,0,0,0,0,-87,-66,-48,-32,-55,-32,-54,-76,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-// bestErr=0.056359418804630225
-// last update Mon Feb 01 2021 21:21:39 GMT+0000 (Greenwich Mean Time)
+var BPAWN_PSTS = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-15,-5,0,5,5,0,-5,-15,0,0,0,0,-36,-15,-25,-24,-41,3,3,-33,0,0,0,0,-23,-21,0,-9,-4,-1,5,-21,0,0,0,0,-29,-22,2,10,11,1,-22,-36,0,0,0,0,-14,10,2,14,17,3,3,-34,0,0,0,0,-2,8,23,-1,37,45,16,-28,0,0,0,0,19,64,31,46,45,15,3,-30,0,0,0,0,-15,-5,0,5,5,0,-5,-15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
+var BKNIGHT_PSTS = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-106,-15,-37,-23,8,-8,-13,-17,0,0,0,0,-18,-40,-3,3,9,20,6,2,0,0,0,0,-18,-5,11,28,43,18,29,-14,0,0,0,0,-9,16,18,11,30,20,26,-5,0,0,0,0,-8,19,21,42,28,72,25,32,0,0,0,0,-40,52,29,53,93,74,61,22,0,0,0,0,-59,-28,31,32,-12,37,3,-38,0,0,0,0,-150,-72,-31,-38,24,-99,-46,-106,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-var WOUTPOST =        [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   4,   5,   5,   4,   0,   0,   0,   0,
-                       0,   0,   0,   2,   5,  10,  10,   5,   2,   0,   0,   0,
-                       0,   0,   0,   2,   5,  10,  10,   5,   2,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var BBISHOP_PSTS = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-26,10,6,0,12,8,-20,-9,0,0,0,0,15,26,22,8,16,29,49,10,0,0,0,0,7,21,22,24,29,36,26,15,0,0,0,0,-3,16,12,29,32,4,9,7,0,0,0,0,-2,3,11,36,24,24,3,-6,0,0,0,0,-27,26,13,15,2,43,27,-8,0,0,0,0,-27,24,-20,-32,14,-8,103,-76,0,0,0,0,-40,-2,-77,-49,-37,-55,12,-5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-var NULL_PST =        [0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                       0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+var BROOK_PSTS = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-6,-4,10,16,16,9,-23,-4,0,0,0,0,-37,-8,-6,4,7,12,-5,-56,0,0,0,0,-37,-17,-3,-4,11,1,1,-23,0,0,0,0,-28,-23,-9,1,7,-7,7,-19,0,0,0,0,-18,-14,8,17,11,20,-7,-30,0,0,0,0,7,10,15,15,9,19,30,3,0,0,0,0,-11,7,16,24,26,25,-15,-1,0,0,0,0,17,22,11,26,25,10,10,19,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-var BPAWN_PSTS   = Array(144);
-var BPAWN_PSTE   = Array(144);
-var BKNIGHT_PSTS = Array(144);
-var BKNIGHT_PSTE = Array(144);
-var BBISHOP_PSTS = Array(144);
-var BBISHOP_PSTE = Array(144);
-var BROOK_PSTS   = Array(144);
-var BROOK_PSTE   = Array(144);
-var BQUEEN_PSTS  = Array(144);
-var BQUEEN_PSTE  = Array(144);
-var BKING_PSTS   = Array(144);
-var BKING_PSTE   = Array(144);
-var BOUTPOST     = Array(144);
+var BQUEEN_PSTS = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14,-7,5,19,-4,-2,-17,-38,0,0,0,0,-20,9,22,13,20,28,7,22,0,0,0,0,-18,13,1,7,12,7,17,11,0,0,0,0,-5,-21,-6,-6,-1,-3,3,-1,0,0,0,0,-24,-23,-17,-21,2,5,5,-10,0,0,0,0,-11,-12,-5,-1,14,51,30,41,0,0,0,0,-28,-37,-6,20,-14,18,17,29,0,0,0,0,-24,2,15,9,46,29,35,33,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-pst2Black(WPAWN_PSTS,   BPAWN_PSTS);
-pst2Black(WPAWN_PSTE,   BPAWN_PSTE);
+var BKING_PSTS = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-2,57,41,-27,42,-9,52,28,0,0,0,0,30,62,24,-22,-8,19,52,42,0,0,0,0,16,27,-4,-23,-21,-8,23,-6,0,0,0,0,-26,22,-26,-49,-44,-36,-14,-42,0,0,0,0,-4,12,-7,-49,-41,-30,6,-42,0,0,0,0,22,21,9,-52,-25,12,46,-1,0,0,0,0,14,14,-19,-20,-33,-4,0,-28,0,0,0,0,-71,17,3,-31,-82,-47,1,-18,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-pst2Black(WKNIGHT_PSTS, BKNIGHT_PSTS);
-pst2Black(WKNIGHT_PSTE, BKNIGHT_PSTE);
+var BPAWN_PSTE = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,-14,0,-7,12,-5,-18,-14,0,0,0,0,-9,-11,-19,-14,-11,-11,-23,-15,0,0,0,0,4,-5,-17,-22,-22,-16,-12,-5,0,0,0,0,8,-7,-14,-27,-24,-12,-6,4,0,0,0,0,27,21,5,-16,-24,-7,12,23,0,0,0,0,23,17,5,-10,6,-7,25,39,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-pst2Black(WBISHOP_PSTS, BBISHOP_PSTS);
-pst2Black(WBISHOP_PSTE, BBISHOP_PSTE);
+var BKNIGHT_PSTE = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-23,-49,-29,-16,-27,-27,-46,-78,0,0,0,0,-45,-26,-18,-13,-14,-32,-31,-57,0,0,0,0,-31,-13,-17,-6,-12,-16,-32,-23,0,0,0,0,-18,-20,0,10,-1,2,-3,-22,0,0,0,0,-20,-7,6,4,7,-10,-2,-28,0,0,0,0,-33,-31,-9,-11,-40,-26,-35,-54,0,0,0,0,-35,-17,-34,-11,-20,-40,-37,-57,0,0,0,0,-44,-53,-24,-40,-35,-46,-72,-81,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-pst2Black(WROOK_PSTS,   BROOK_PSTS);
-pst2Black(WROOK_PSTE,   BROOK_PSTE);
+var BBISHOP_PSTE = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-32,-25,-26,-22,-24,-24,-25,-28,0,0,0,0,-30,-35,-32,-23,-21,-33,-32,-48,0,0,0,0,-26,-23,-18,-24,-20,-31,-29,-32,0,0,0,0,-26,-27,-18,-17,-34,-22,-31,-26,0,0,0,0,-24,-17,-21,-24,-24,-25,-26,-17,0,0,0,0,-9,-28,-27,-32,-31,-34,-25,-11,0,0,0,0,-15,-32,-17,-34,-29,-21,-28,-19,0,0,0,0,-31,-43,-29,-26,-24,-25,-33,-48,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-pst2Black(WQUEEN_PSTS,  BQUEEN_PSTS);
-pst2Black(WQUEEN_PSTE,  BQUEEN_PSTE);
+var BROOK_PSTE = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,19,13,8,7,14,17,-9,0,0,0,0,24,12,15,13,6,7,6,23,0,0,0,0,26,23,9,11,3,9,10,9,0,0,0,0,31,32,28,16,12,18,11,20,0,0,0,0,33,28,31,16,19,26,23,37,0,0,0,0,29,31,24,23,18,24,24,23,0,0,0,0,17,8,4,-1,-8,8,19,19,0,0,0,0,33,29,30,25,26,35,33,32,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-pst2Black(WKING_PSTS,   BKING_PSTS);
-pst2Black(WKING_PSTE,   BKING_PSTE);
+var BQUEEN_PSTE = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-30,-24,-13,-31,9,-30,-16,-42,0,0,0,0,-17,-24,-18,-8,-8,-17,-29,-32,0,0,0,0,5,-22,24,9,6,24,25,17,0,0,0,0,-5,35,29,53,35,40,38,30,0,0,0,0,23,27,34,53,58,39,53,36,0,0,0,0,-11,15,19,62,54,45,35,19,0,0,0,0,-32,0,18,26,45,17,6,10,0,0,0,0,-11,21,29,28,35,25,14,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-pst2Black(WOUTPOST,     BOUTPOST);
+var BKING_PSTE = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-87,-66,-48,-32,-55,-32,-54,-76,0,0,0,0,-53,-39,-17,-8,-5,-15,-29,-46,0,0,0,0,-43,-25,-5,5,6,0,-14,-31,0,0,0,0,-37,-20,9,15,17,11,-5,-27,0,0,0,0,-22,7,14,22,20,25,17,-12,0,0,0,0,-4,11,11,13,13,45,36,-3,0,0,0,0,-21,2,10,14,18,35,12,-2,0,0,0,0,-125,-51,-36,-42,-17,12,-13,-37,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-var WE_PST = [NULL_PST, WPAWN_PSTE,  WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE]; // end eval.
-var WS_PST = [NULL_PST, WPAWN_PSTS,  WKNIGHT_PSTS, WBISHOP_PSTS, WROOK_PSTS, WQUEEN_PSTS, WKING_PSTS]; // opening/middle eval.
+var WOUTPOST = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,5,5,4,0,0,0,0,0,0,0,2,5,10,10,5,2,0,0,0,0,0,0,2,5,10,10,5,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-var BS_PST = [NULL_PST, BPAWN_PSTS,  BKNIGHT_PSTS, BBISHOP_PSTS, BROOK_PSTS, BQUEEN_PSTS, BKING_PSTS];
-var BE_PST = [NULL_PST, BPAWN_PSTE,  BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
+var BOUTPOST = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,5,10,10,5,2,0,0,0,0,0,0,2,5,10,10,5,2,0,0,0,0,0,0,0,4,5,5,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-var WM_PST = [NULL_PST, WPAWN_PSTE,  WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE]; // move eval.
-var BM_PST = [NULL_PST, BPAWN_PSTE,  BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
+var EV = [4,4,5,5,2,4,1,2,1,1,3,4,20,10,20,10,20,8,10,5,10,50,100,0,20,40,10,10,10,20,100,11,10,20,60,120,60,800,20,5,0,0,0,0,0,0,50,20,10];
+
+var imbalN_S = [0,0,0,0,0,0,0,0,0];
+
+var imbalN_E = [0,0,0,0,0,0,0,0,0];
+
+var imbalB_S = [0,0,0,0,0,0,0,0,0];
+
+var imbalB_E = [0,0,0,0,0,0,0,0,0];
+
+var imbalR_S = [0,0,0,0,0,0,0,0,0];
+
+var imbalR_E = [0,0,0,0,0,0,0,0,0];
+
+var imbalQ_S = [0,0,0,0,0,0,0,0,0];
+
+var imbalQ_E = [0,0,0,0,0,0,0,0,0];
+
+var WSHELTER = [0,0,0,11,20,27,32,35,0,36];
+
+var WSTORM = [0,0,0,60,30,10,0,0,0,0];
+
+var ATT_W = [0,0,0.5,0.75,0.88,0.94,0.97,0.99];
+
+var PAWN_PASSED = [0,0,0,0,0.1,0.3,0.6,1,0];
+
+// bestErr=0.057335578985783904
+
+// last update Tue Feb 02 2021 16:07:53 GMT+0000 (Greenwich Mean Time)
 
 //}}}
-//{{{  ev vector
-
-//{{{  ev indexes
-
-var iMOB_NS               = 0;
-var iMOB_NE               = 1;
-var iMOB_BS               = 2;
-var iMOB_BE               = 3;
-var iMOB_RS               = 4;
-var iMOB_RE               = 5;
-var iMOB_QS               = 6;
-var iMOB_QE               = 7;
-var iATT_N                = 8;
-var iATT_B                = 9;
-var iATT_R                = 10;
-var iATT_Q                = 11;
-var iATT_M                = 12;
-var iPAWN_DOUBLED_S       = 13;
-var iPAWN_DOUBLED_E       = 14;
-var iPAWN_ISOLATED_S      = 15;
-var iPAWN_ISOLATED_E      = 16;
-var iPAWN_BACKWARD_S      = 17;
-var iPAWN_BACKWARD_E      = 18;
-var iPAWN_PASSED_OFFSET_S = 19;
-var iPAWN_PASSED_OFFSET_E = 20;
-var iPAWN_PASSED_MULT_S   = 21;
-var iPAWN_PASSED_MULT_E   = 22;
-var iTWOBISHOPS_S         = 23;
-var iROOK7TH_S            = 24;
-var iROOK7TH_E            = 25;
-var iROOKOPEN_S           = 26;
-var iROOKOPEN_E           = 27;
-var iQUEEN7TH_S           = 28;
-var iQUEEN7TH_E           = 29;
-var iTRAPPED              = 30;
-var iKING_PENALTY         = 31;
-var iPAWN_OFFSET_S        = 32;
-var iPAWN_OFFSET_E        = 33;
-var iPAWN_MULT_S          = 34;
-var iPAWN_MULT_E          = 35;
-var iPAWN_PASS_FREE       = 36;
-var iPAWN_PASS_UNSTOP     = 37;
-var iPAWN_PASS_KING1      = 38;
-var iPAWN_PASS_KING2      = 39;
-var iMOBOFF_NS            = 40;
-var iMOBOFF_NE            = 41;
-var iMOBOFF_BS            = 42;
-var iMOBOFF_BE            = 43;
-var iMOBOFF_RS            = 44;
-var iMOBOFF_RE            = 45;
-var iTWOBISHOPS_E         = 46;
-var iTEMPO_S              = 47;
-var iTEMPO_E              = 48;
-
-var iSIZE                 = 49;
-
-//}}}
-//{{{  ev values
-
-var EV = Array(iSIZE);
-
-EV[iMOB_NS]               = 4;
-EV[iMOB_NE]               = 4;
-EV[iMOB_BS]               = 5;
-EV[iMOB_BE]               = 5;
-EV[iMOB_RS]               = 2;
-EV[iMOB_RE]               = 4;
-EV[iMOB_QS]               = 1;
-EV[iMOB_QE]               = 2;
-EV[iATT_N]                = 1;
-EV[iATT_B]                = 1;
-EV[iATT_R]                = 3;
-EV[iATT_Q]                = 4;
-EV[iATT_M]                = 20;
-EV[iPAWN_DOUBLED_S]       = 10;
-EV[iPAWN_DOUBLED_E]       = 20;
-EV[iPAWN_ISOLATED_S]      = 10;
-EV[iPAWN_ISOLATED_E]      = 20;
-EV[iPAWN_BACKWARD_S]      = 8;
-EV[iPAWN_BACKWARD_E]      = 10;
-EV[iPAWN_PASSED_OFFSET_S] = 5;
-EV[iPAWN_PASSED_OFFSET_E] = 10;
-EV[iPAWN_PASSED_MULT_S]   = 50;
-EV[iPAWN_PASSED_MULT_E]   = 100;
-EV[iTWOBISHOPS_S]         = 0;
-EV[iROOK7TH_S]            = 20;
-EV[iROOK7TH_E]            = 40;
-EV[iROOKOPEN_S]           = 10;
-EV[iROOKOPEN_E]           = 10;
-EV[iQUEEN7TH_S]           = 10;
-EV[iQUEEN7TH_E]           = 20;
-EV[iTRAPPED]              = 100;
-EV[iKING_PENALTY]         = 11;
-EV[iPAWN_OFFSET_S]        = 10;
-EV[iPAWN_OFFSET_E]        = 20;
-EV[iPAWN_MULT_S]          = 60;
-EV[iPAWN_MULT_E]          = 120;
-EV[iPAWN_PASS_FREE]       = 60;
-EV[iPAWN_PASS_UNSTOP]     = 800;
-EV[iPAWN_PASS_KING1]      = 20;
-EV[iPAWN_PASS_KING2]      = 5;
-EV[iMOBOFF_NS]            = 0;
-EV[iMOBOFF_NE]            = 0;
-EV[iMOBOFF_BS]            = 0;
-EV[iMOBOFF_BE]            = 0;
-EV[iMOBOFF_RS]            = 0;
-EV[iMOBOFF_RE]            = 0;
-EV[iTWOBISHOPS_E]         = 50;
-EV[iTEMPO_S]              = 20;
-EV[iTEMPO_E]              = 10;
 
 //}}}
 //{{{  ev assignments
@@ -1264,31 +1209,16 @@ var TEMPO_S              = EV[iTEMPO_S];
 var TEMPO_E              = EV[iTEMPO_E];
 
 //}}}
+//{{{  pst lists
 
-//}}}
-//{{{  other eval params
+var WE_PST = [NULL_PST, WPAWN_PSTE,  WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE]; // end eval.
+var WS_PST = [NULL_PST, WPAWN_PSTS,  WKNIGHT_PSTS, WBISHOP_PSTS, WROOK_PSTS, WQUEEN_PSTS, WKING_PSTS]; // opening/middle eval.
 
-var imbalN_S = [0,0,0,0,0,0,0,0,0];
-var imbalN_E = [0,0,0,0,0,0,0,0,0];
-var imbalB_S = [0,0,0,0,0,0,0,0,0];
-var imbalB_E = [0,0,0,0,0,0,0,0,0];
-var imbalR_S = [0,0,0,0,0,0,0,0,0];
-var imbalR_E = [0,0,0,0,0,0,0,0,0];
-var imbalQ_S = [0,0,0,0,0,0,0,0,0];
-var imbalQ_E = [0,0,0,0,0,0,0,0,0];
+var BS_PST = [NULL_PST, BPAWN_PSTS,  BKNIGHT_PSTS, BBISHOP_PSTS, BROOK_PSTS, BQUEEN_PSTS, BKING_PSTS];
+var BE_PST = [NULL_PST, BPAWN_PSTE,  BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
 
-var MOB_NIS = IS_NBRQKE;
-var MOB_BIS = IS_NBRQKE;
-var MOB_RIS = IS_RQKE;
-var MOB_QIS = IS_QKE;
-
-var ATT_W = [0,0,0.5,0.75,0.88,0.94,0.97,0.99];
-var ATT_L = 7;
-
-var WSHELTER = [0,  0,  0,  11, 20, 27, 32, 35, 0, 36];
-var WSTORM   = [0,  0,  0,  60, 30, 10, 0,  0,  0, 0];
-
-var PAWN_PASSED = [0,0,0,0,0.1,0.3,0.6,1.0,0];  // rank bonus curve.
+var WM_PST = [NULL_PST, WPAWN_PSTE,  WKNIGHT_PSTE, WBISHOP_PSTE, WROOK_PSTE, WQUEEN_PSTE, WKING_PSTE]; // move eval.
+var BM_PST = [NULL_PST, BPAWN_PSTE,  BKNIGHT_PSTE, BBISHOP_PSTE, BROOK_PSTE, BQUEEN_PSTE, BKING_PSTE];
 
 //}}}
 
@@ -4038,6 +3968,13 @@ lozBoard.prototype.formatMove = function (move, fmt) {
 
 //}}}
 //{{{  .evaluate
+
+var MOB_NIS = IS_NBRQKE;
+var MOB_BIS = IS_NBRQKE;
+var MOB_RIS = IS_RQKE;
+var MOB_QIS = IS_QKE;
+
+var ATT_L = 7;
 
 lozBoard.prototype.evaluate = function (turn) {
 
