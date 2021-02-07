@@ -8,6 +8,7 @@ var BUILD = "2";
 //{{{  history
 /*
 
+2.00 Don't prune in a PV node.
 2.00 Remove support for jsUCI.
 2.00 Rearrange eval params so they can be tuned.
 2.00 Tune piece values and PSTs.
@@ -1461,7 +1462,7 @@ lozChess.prototype.go = function() {
 
   //{{{  sort out spec
   
-  this.uci.send('info hashfull',myround(1000*board.hashUsed/TTSIZE));
+  //this.uci.send('info hashfull',myround(1000*board.hashUsed/TTSIZE));
   
   var totTime = 0;
   var movTime = 0;
@@ -1710,7 +1711,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         var pvStr    = board.getPVStr(node,move,depth);
         
         if (absScore >= MINMATE && absScore <= MATE) {
-          pvStr += '#';
+          if (lozzaHost != HOST_NODEJS)
+            pvStr += '#';
           var units    = 'mate';
           var uciScore = (MATE - absScore) / 2 | 0;
           if (score < 0)
@@ -1960,11 +1962,11 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     E          = 0;
     R          = 0;
     
-    if (inCheck && depth < 5) {
+    if (inCheck && (pvNode || depth < 5)) {
       E = 1;
     }
     
-    else if (doLMP || doLMR || doFutility) {
+    else if (!inCheck && (doLMP || doLMR || doFutility)) {
     
       givesCheck = board.isKingAttacked(turn);
       keeper     = node.base >= BASE_LMR || (move & KEEPER_MASK) || givesCheck || board.alphaMate(alpha);
@@ -6426,7 +6428,7 @@ onmessage = function(e) {
       
       uci.send('id name Lozza',BUILD);
       uci.send('id author Colin Jenkins');
-      uci.send('option');
+      //uci.send('option');
       uci.send('uciok');
       
       break;
