@@ -8,7 +8,20 @@ var BUILD = "2";
 //{{{  history
 /*
 
-2.00 Don't prune in a PV node.
+//{{{  2.00 Don't prune in a PV node.
+
+Score of coalface vs master: 1218 - 1077 - 1572   [0.518] 3867
+
+coalface playing White: 604 -  531 -  799  [0.519] 1934
+coalface playing Black: 614 -  546 -  773  [0.518] 1933
+White vs Black:        1150 - 1145 - 1572  [0.501] 3867
+
+Elo difference: 12.7 +/- 8.4, LOS: 99.8 %, DrawRatio: 40.7 %
+
+SPRT: llr 2.95 (100.3%), lbound -2.94, ubound 2.94 - H1 was accepted
+
+//}}}
+2.00 Don't try and reduce when in check (optimisation).
 2.00 Remove support for jsUCI.
 2.00 Rearrange eval params so they can be tuned.
 2.00 Tune piece values and PSTs.
@@ -1901,7 +1914,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var keeper         = false;
   var doFutility     = !inCheck && depth <= 4 && (standPat + depth * 120) < alpha && !lonePawns;
   var doLMR          = !inCheck && depth >= 3;
-  var doLMP          = !inCheck && depth <= 2 && !lonePawns;
+  var doLMP          = !pvNode && !inCheck && depth <= 2 && !lonePawns;
   var doIID          = !node.hashMove && pvNode && depth > 3;
 
   //{{{  IID
