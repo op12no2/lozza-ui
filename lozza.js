@@ -8,19 +8,8 @@ var BUILD = "2";
 //{{{  history
 /*
 
-//{{{  2.00 Don't prune in a PV node.
-
-Score of coalface vs master: 1218 - 1077 - 1572   [0.518] 3867
-
-coalface playing White: 604 -  531 -  799  [0.519] 1934
-coalface playing Black: 614 -  546 -  773  [0.518] 1933
-White vs Black:        1150 - 1145 - 1572  [0.501] 3867
-
-Elo difference: 12.7 +/- 8.4, LOS: 99.8 %, DrawRatio: 40.7 %
-
-SPRT: llr 2.95 (100.3%), lbound -2.94, ubound 2.94 - H1 was accepted
-
-//}}}
+2.00 Add -ve history scores for moves < alpha.
+2.00 Don't do LMR in a pvNode.
 2.00 Don't try and reduce when in check (optimisation).
 2.00 Remove support for jsUCI.
 2.00 Rearrange eval params so they can be tuned.
@@ -769,17 +758,17 @@ var PTT_BPASS = 16;
 // max            9007199254740992
 //
 
-var BASE_HASH       =  10000012000;  // no
-var BASE_PROMOTES   =  10000011000;  // no
-var BASE_GOODTAKES  =  10000010000;  // no
-var BASE_EVENTAKES  =  10000009000;  // no
-var BASE_EPTAKES    =  10000008000;  // no
-var BASE_MATEKILLER =  10000007000;
-var BASE_MYKILLERS  =  10000006000;
-var BASE_GPKILLERS  =  10000005000;
-var BASE_CASTLING   =  10000004000;  // yes
-var BASE_BADTAKES   =  10000003000;  // yes
-var BASE_HISSLIDE   =         2000;  // yes
+var BASE_HASH       =  40000012000;  // no
+var BASE_PROMOTES   =  40000011000;  // no
+var BASE_GOODTAKES  =  40000010000;  // no
+var BASE_EVENTAKES  =  40000009000;  // no
+var BASE_EPTAKES    =  40000008000;  // no
+var BASE_MATEKILLER =  40000007000;
+var BASE_MYKILLERS  =  40000006000;
+var BASE_GPKILLERS  =  40000005000;
+var BASE_CASTLING   =  40000004000;  // yes
+var BASE_BADTAKES   =  40000003000;  // yes
+var BASE_HISSLIDE   =  20000002000;  // yes
 var BASE_PSTSLIDE   =         1000;  // yes
 
 var BASE_LMR        = BASE_BADTAKES;
@@ -1708,11 +1697,11 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         if (score >= beta) {
           node.addKiller(score, move);
           board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta);
-          board.addHistory(depth, move);
+          board.addHistory(depth*depth, move);
           return score;
         }
         alpha = score;
-        board.addHistory(depth, move);
+        board.addHistory(depth+depth, move);
         //{{{  update best move & send score to UI
         
         this.stats.bestMove = move;
@@ -1743,6 +1732,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
       bestScore = score;
       bestMove  = move;
     }
+    else
+      board.addHistory(-depth, move);
   }
 
   if (numLegalMoves == 0)
@@ -2037,15 +2028,17 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
         if (score >= beta) {
           node.addKiller(score, move);
           board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta);
-          board.addHistory(depth, move);
+          board.addHistory(depth*depth, move);
           return score;
         }
-        board.addHistory(depth, move);
+        board.addHistory(depth+depth, move);
         alpha     = score;
       }
       bestScore = score;
       bestMove  = move;
     }
+    else
+      board.addHistory(-depth, move);
   }
 
   //{{{  no moves?
@@ -5610,17 +5603,17 @@ lozBoard.prototype.getPVStr = function(node,move,depth) {
 //}}}
 //{{{  .addHistory
 
-lozBoard.prototype.addHistory = function (depth, move) {
+lozBoard.prototype.addHistory = function (x, move) {
 
   var to      = (move & MOVE_TO_MASK)    >>> MOVE_TO_BITS;
   var frObj   = (move & MOVE_FROBJ_MASK) >>> MOVE_FROBJ_BITS;
   var frPiece = frObj & PIECE_MASK;
 
   if ((frObj & COLOR_MASK) == WHITE) {
-    this.wHistory[frPiece][to] += depth*depth;
+    this.wHistory[frPiece][to] += x;
   }
   else {
-    this.bHistory[frPiece][to] += depth*depth;
+    this.bHistory[frPiece][to] += x;
   }
 }
 
