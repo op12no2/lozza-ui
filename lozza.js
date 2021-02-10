@@ -1,6 +1,7 @@
 //"use strict"
 //
 // https://github.com/op12no2
+// results for history in testing/testing.log
 //
 
 var BUILD = "2";
@@ -8,13 +9,14 @@ var BUILD = "2";
 //{{{  history
 /*
 
-2.00 Add -ve history scores for moves < alpha.
-2.00 Don't do LMR in a pvNode.
-2.00 Don't try and reduce when in check (optimisation).
-2.00 Remove support for jsUCI.
-2.00 Rearrange eval params so they can be tuned.
-2.00 Tune piece values and PSTs.
-2.00 Simplify phase and eval calc.
+2.00 10/02/21 use depth^3 (>=beta), depth^2 (>=alpha) and -depth  (< alpha) for history
+2.00 09/02/21 Add -ve history scores for moves < alpha.
+2.00 08/02/21 Don't do LMR in a pvNode.
+2.00 07/02/21 Don't try and reduce when in check (optimisation).
+2.00 06/02/21 Remove support for jsUCI.
+2.00 23/01/21 Tune piece values and PSTs.
+2.00 10/01/21 Rearrange eval params so they can be tuned.
+2.00 03/01/21 Simplify phase and eval calc.
 
 1.18 Don't pseudo-move king adjacent to king.
 1.18 Fix black king endgame PST.
@@ -1697,11 +1699,11 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
         if (score >= beta) {
           node.addKiller(score, move);
           board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta);
-          board.addHistory(depth*depth, move);
+          board.addHistory(depth*depth*depth, move);
           return score;
         }
         alpha = score;
-        board.addHistory(depth+depth, move);
+        board.addHistory(depth*depth, move);
         //{{{  update best move & send score to UI
         
         this.stats.bestMove = move;
@@ -2028,10 +2030,10 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
         if (score >= beta) {
           node.addKiller(score, move);
           board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta);
-          board.addHistory(depth*depth, move);
+          board.addHistory(depth*depth*depth, move);
           return score;
         }
-        board.addHistory(depth+depth, move);
+        board.addHistory(depth*depth, move);
         alpha     = score;
       }
       bestScore = score;
@@ -2280,6 +2282,8 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 //{{{  lozBoard
 
 function lozBoard () {
+
+  this.seed = 5210319595;
 
   this.lozza        = null;
   this.verbose      = false;
@@ -5303,6 +5307,27 @@ lozBoard.prototype.rand32 = function () {
   return Math.random() * 0xFFFFFFFF | 0;
 
 }
+
+//}}}
+//{{{  .prng
+//
+// https://en.wikipedia.org/wiki/Xorshift
+//
+
+/*
+lozBoard.prototype.rand32 = function () {
+
+  var x = this.seed;
+
+  x ^= x << 13;
+  x ^= x >> 17;
+  x ^= x << 5;
+
+  this.seed = x;
+
+  return x;
+}
+*/
 
 //}}}
 //{{{  .ttPut
