@@ -2283,8 +2283,6 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 
 function lozBoard () {
 
-  this.seed = 5210319595;
-
   this.lozza        = null;
   this.verbose      = false;
   this.mvFmt        = 0;
@@ -5309,27 +5307,6 @@ lozBoard.prototype.rand32 = function () {
 }
 
 //}}}
-//{{{  .prng
-//
-// https://en.wikipedia.org/wiki/Xorshift
-//
-
-/*
-lozBoard.prototype.rand32 = function () {
-
-  var x = this.seed;
-
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-
-  this.seed = x;
-
-  return x;
-}
-*/
-
-//}}}
 //{{{  .ttPut
 
 lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
@@ -6568,6 +6545,7 @@ if (lozzaHost == HOST_NODEJS) {
 
   process.stdin.on('readable', function() {
     var chunk = process.stdin.read();
+    process.stdin.resume();
     if (chunk !== null) {
       onmessage({data: chunk});
     }
