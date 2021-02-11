@@ -4,15 +4,16 @@
 // results for history in testing/testing.log
 //
 
-var BUILD = "2";
+var BUILD = "2.0";
 
 //{{{  history
 /*
 
+2.00 11/02/21 Add draft bench command.
 2.00 10/02/21 Use pre generated random numbers. https://github.com/davidbau/seedrandom
 2.00 10/02/21 Use depth^3 (>=beta), depth^2 (>=alpha) and -depth  (< alpha) for history.
 2.00 09/02/21 Add -ve history scores for moves < alpha.
-2.00 08/02/21 Don't do LMR in a pvNode.
+2.00 08/02/21 Don't do LMP in a pvNode.
 2.00 07/02/21 Don't try and reduce when in check (optimisation).
 2.00 06/02/21 Remove support for jsUCI.
 2.00 23/01/21 Tune piece values and PSTs.
@@ -6407,6 +6408,61 @@ onmessage = function(e) {
       //{{{  stop
       
       lozza.stats.timeOut = 1;
+      
+      break;
+      
+      //}}}
+
+    case 'bench':
+      //{{{  bench
+      
+      uci.debugging = true;
+      
+      for (var i=0; i < WS_PST.length; i++) {
+        var wpst = WS_PST[i];
+        var bpst = BS_PST[i];
+        if (wpst.length != 144)
+          uci.debug('ws pst len err',i)
+        if (bpst.length != 144)
+          uci.debug('bs pst len err',i)
+        for (var j=0; j < wpst.length; j++) {
+          if (wpst[j] != bpst[wbmap(j)])
+            uci.debug('s pst err',i,j,wpst[j],bpst[wbmap(j)])
+        }
+      }
+      
+      for (var i=0; i < WE_PST.length; i++) {
+        var wpst = WE_PST[i];
+        var bpst = BE_PST[i];
+        if (wpst.length != 144)
+          uci.debug('we pst len err',i)
+        if (bpst.length != 144)
+          uci.debug('be pst len err',i)
+        for (var j=0; j < wpst.length; j++) {
+          if (wpst[j] != bpst[wbmap(j)])
+            uci.debug('e pst err',i,j,wpst[j],bpst[wbmap(j)])
+        }
+      }
+      
+      if (WOUTPOST.length != 144)
+        uci.debug('w outpost len err',i)
+      if (BOUTPOST.length != 144)
+        uci.debug('b outpost len err',i)
+      for (var j=0; j < WOUTPOST.length; j++) {
+        if (WOUTPOST[j] != BOUTPOST[wbmap(j)])
+          uci.debug('outpost err',j,WOUTPOST[j],BOUTPOST[wbmap(j)])
+      }
+      
+      for (var i=0; i < 144; i++) {
+        for (var j=0; j < 144; j++) {
+          if (WKZONES[i][j] != BKZONES[wbmap(i)][wbmap(j)])
+            uci.debug('kzones err',i,j,WKZONES[i][j],BKZONES[i][j])
+        }
+      }
+      
+      uci.debug('bench done ok')
+      
+      uci.debugging = false;
       
       break;
       
