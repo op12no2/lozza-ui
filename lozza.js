@@ -9,16 +9,17 @@ var BUILD = "2.0";
 //{{{  history
 /*
 
-2.00 11/02/21 Add draft bench command.
-2.00 10/02/21 Use pre generated random numbers. https://github.com/davidbau/seedrandom
-2.00 10/02/21 Use depth^3 (>=beta), depth^2 (>=alpha) and -depth  (< alpha) for history.
-2.00 09/02/21 Add -ve history scores for moves < alpha.
-2.00 08/02/21 Don't do LMP in a pvNode.
-2.00 07/02/21 Don't try and reduce when in check (optimisation).
-2.00 06/02/21 Remove support for jsUCI.
-2.00 23/01/21 Tune piece values and PSTs.
-2.00 10/01/21 Rearrange eval params so they can be tuned.
-2.00 03/01/21 Simplify phase and eval calc.
+2.0 12/02/21 Do LMR earlier.
+2.0 11/02/21 Add draft bench command.
+2.0 10/02/21 Use pre generated random numbers https://github.com/davidbau/seedrandom.
+2.0 10/02/21 Use depth^3 (>=beta), depth^2 (>=alpha) and -depth  (< alpha) for history.
+2.0 09/02/21 Add -ve history scores for moves < alpha.
+2.0 08/02/21 Don't do LMP in a pvNode. We need a move!
+2.0 07/02/21 Don't _try and reduce when in check (optimisation).
+2.0 06/02/21 Remove support for jsUCI.
+2.0 23/01/21 Tune piece values and PSTs.
+2.0 10/01/21 Rearrange eval params so they can be tuned.
+2.0 03/01/21 Simplify phase and eval calc.
 
 1.18 Don't pseudo-move king adjacent to king.
 1.18 Fix black king endgame PST.
@@ -1978,7 +1979,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
         continue;
       }
     
-      if (doLMR && !keeper && numSlides > 4) {
+      if (doLMR && !keeper && numLegalMoves > 4) {
         R = 1 + depth/5 + numSlides/20 | 0;
       }
     }
