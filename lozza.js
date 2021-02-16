@@ -9,6 +9,7 @@ var BUILD = "2.0";
 //{{{  history
 /*
 
+2.0 16/02/21 Swap mate and draw testing order in search.
 2.0 12/02/21 Do LMR earlier.
 2.0 11/02/21 Add draft bench command.
 2.0 10/02/21 Use pre generated random numbers https://github.com/davidbau/seedrandom.
@@ -319,7 +320,7 @@ var COLOR_MASK = 0x8;
 
 var VALUE_PAWN = 100;             // safe - tuning root
 
-const TTSIZE = 1 << 24;
+const TTSIZE = 1 << 22;
 const TTMASK = TTSIZE - 1;
 
 const PTTSIZE = 1 << 14;
@@ -1769,18 +1770,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var score    = 0;
   var pvNode   = beta != (alpha + 1);
 
-  //{{{  check for draws
-  
-  if (board.repHi - board.repLo > 100)
-    return CONTEMPT;
-  
-  for (var i=board.repHi-5; i >= board.repLo; i -= 2) {
-  
-    if (board.repLoHash[i] == board.loHash && board.repHiHash[i] == board.hiHash)
-      return CONTEMPT;
-  }
-  
-  //}}}
   //{{{  mate distance pruning
   
   var matingValue = MATE - node.ply;
@@ -1797,6 +1786,18 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
      alpha = matingValue;
      if (beta <= matingValue)
        return matingValue;
+  }
+  
+  //}}}
+  //{{{  check for draws
+  
+  if (board.repHi - board.repLo > 100)
+    return CONTEMPT;
+  
+  for (var i=board.repHi-5; i >= board.repLo; i -= 2) {
+  
+    if (board.repLoHash[i] == board.loHash && board.repHiHash[i] == board.hiHash)
+      return CONTEMPT;
   }
   
   //}}}
