@@ -289,6 +289,7 @@ var iMOBOFF_RE            = 45;
 var iTWOBISHOPS_E         = 46;
 var iTEMPO_S              = 47;
 var iTEMPO_E              = 48;
+var iSHELTERM             = 49;
 
 //}}}
 
@@ -1116,7 +1117,7 @@ var WOUTPOST = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 
 var BOUTPOST = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,18,21,21,18,26,22,0,0,0,0,0,0,12,19,28,17,36,46,0,0,0,0,0,0,17,17,14,23,23,23,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
-var EV = [5,-1,7,2,4,2,2,4,1,1,4,3,21,5,10,13,13,9,9,-3,-1,49,99,23,7,26,18,-1,-3,20,42,7,3,14,56,102,91,793,40,26,1,-1,0,0,0,0,61,21,21];
+var EV = [5,-1,7,2,4,2,2,4,1,1,4,3,21,5,10,13,13,9,9,-3,-1,49,99,23,7,26,18,-1,-3,20,42,7,3,14,56,102,91,793,40,26,1,-1,0,0,0,0,61,21,21,2.0];
 
 var imbalN_S = [0,1,1,-2,2,-1,0,8,22];
 
@@ -1198,6 +1199,7 @@ var MOBOFF_RE            = EV[iMOBOFF_RE];
 var TWOBISHOPS_E         = EV[iTWOBISHOPS_E];
 var TEMPO_S              = EV[iTEMPO_S];
 var TEMPO_E              = EV[iTEMPO_E];
+var SHELTERM             = EV[iSHELTERM];
 
 //}}}
 //{{{  pst lists
@@ -4567,7 +4569,7 @@ lozBoard.prototype.evaluate = function (turn) {
     
     penalty = 0;
     
-    penalty += WSHELTER[(wLeast & wKingMask) >>> wKingBits] * 2;
+    penalty += WSHELTER[(wLeast & wKingMask) >>> wKingBits] * SHELTERM;
     
     if (wKingFile != 8)
       penalty += WSHELTER[(wLeastR & wKingMask) >>> wKingBits];
@@ -4603,7 +4605,7 @@ lozBoard.prototype.evaluate = function (turn) {
     
     penalty = 0;
     
-    penalty += WSHELTER[9 - ((bLeast & bKingMask) >>> bKingBits)] * 2;
+    penalty += WSHELTER[9 - ((bLeast & bKingMask) >>> bKingBits)] * SHELTERM;
     
     if (bKingFile != 8)
       penalty += WSHELTER[9 - ((bLeastR & bKingMask) >>> bKingBits)];
