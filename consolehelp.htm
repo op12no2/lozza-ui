@@ -27,8 +27,12 @@ body {padding: 20px;}
 <p>This Lozza UI allows you to type UCI commands in a console-like manner.</p>
 <p><b>COMMAND EXTENSIONS</b></p>
 <p>In addition to the standard UCI protocol, the following commands can be used:-</p>
+<p><b>quit</b></p>
+<p>Kill the Lozza engine. Use start to restart it.</p>
 <p><b>stop</b></p>
-<p>Stop the Lozza engine. Useful to stop a long perft or analysis. What actually happens is that the web worker containing Lozza is killed. You'll need to restart one.</p>
+<p>Stop a long analysis. Will only work in a web worker context.</p>
+<p><b>bench</b></p>
+<p>Do some self checks.</p>
 <p><b>start</b></p>
 <p>Start Lozza. i.e. create a new web worker containing the Lozza. After a start the following are automatically sent:-</p>
 <p>uci<br />ucinewgame<br />position startpos<br />board</p>
