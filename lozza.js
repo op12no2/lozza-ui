@@ -1,13 +1,14 @@
 //"use strict"
 //
 // https://github.com/op12no2
-// testing and tuning results in testing/testing.log
 //
 
-var BUILD = "2.0";
+var BUILD = "2.1";
 
 //{{{  history
 /*
+
+2.1 14/05/21 Fix mobility offset bug.
 
 2.0 19/02/21 Add imbalance terms when no pawns.
 2.0 17/02/21 Tune all eval params.
@@ -323,7 +324,7 @@ var COLOR_MASK = 0x8;
 
 var VALUE_PAWN = 100;             // safe - tuning root
 
-const TTSIZE = 1 << 24;
+const TTSIZE = 1 << 22;
 const TTMASK = TTSIZE - 1;
 
 const PTTSIZE = 1 << 14;
@@ -4940,8 +4941,8 @@ lozBoard.prototype.evaluate = function (turn) {
       to = fr+25; mob += MOB_NIS[b[to]]; att += WKZ[to] * MOB_NIS[b[to]];
       to = fr-25; mob += MOB_NIS[b[to]]; att += WKZ[to] * MOB_NIS[b[to]];
       
-      mobS -= mob * MOB_NS + MOBOFF_NS;
-      mobE -= mob * MOB_NE + MOBOFF_NE;
+      mobS -= mob * MOB_NS - MOBOFF_NS;
+      mobE -= mob * MOB_NE - MOBOFF_NE;
       
       if (att) {
         attackN++;
@@ -4980,8 +4981,8 @@ lozBoard.prototype.evaluate = function (turn) {
       to = fr + 13;  while (!b[to]) {att += WKZ[to]; to += 13; mob++;} mob += MOB_BIS[b[to]]; att += WKZ[to] * MOB_BIS[b[to]];
       to = fr - 13;  while (!b[to]) {att += WKZ[to]; to -= 13; mob++;} mob += MOB_BIS[b[to]]; att += WKZ[to] * MOB_BIS[b[to]];
       
-      mobS -= mob * MOB_BS + MOBOFF_BS;
-      mobE -= mob * MOB_BE + MOBOFF_BE;
+      mobS -= mob * MOB_BS - MOBOFF_BS;
+      mobE -= mob * MOB_BE - MOBOFF_BE;
       
       if (att) {
         attackN++;
@@ -5008,8 +5009,8 @@ lozBoard.prototype.evaluate = function (turn) {
       to = fr + 12;  while (!b[to]) {att += WKZ[to]; to += 12; mob++;} mob += MOB_RIS[b[to]]; att += WKZ[to] * MOB_RIS[b[to]];
       to = fr - 12;  while (!b[to]) {att += WKZ[to]; to -= 12; mob++;} mob += MOB_RIS[b[to]]; att += WKZ[to] * MOB_RIS[b[to]];
       
-      mobS -= mob * MOB_RS + MOBOFF_RS;
-      mobE -= mob * MOB_RE + MOBOFF_RE;
+      mobS -= mob * MOB_RS - MOBOFF_RS;
+      mobE -= mob * MOB_RE - MOBOFF_RE;
       
       if (att) {
         attackN++;
