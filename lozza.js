@@ -16,7 +16,7 @@ var BUILD = "3";
 //{{{  history
 /*
 
-12/07/21 Add xray term to eval (not used yet).
+12/07/21 Add xray term to eval.
 18/06/21 Add cwtch term to eval.
 16/06/21 Add reach term to eval.
 31/03/21 New basic eval of just Material, PST, mobility and BN imbalance WRT pawns.
@@ -822,7 +822,7 @@ var randoms = [
 ];
 
 //}}}
-//{{{  3   @xray full zuri
+//{{{  tuned params
 
 // data=c:/projects/chessdata/quiet-labeled.epd
 // k=1.62
