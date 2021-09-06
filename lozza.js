@@ -889,6 +889,9 @@ var cwtch_S        = [0,-1,2,2,5,18,0];
 var cwtch_E        = [0,-1,0,0,-3,10,0];
 var xray_S         = [0,0,0,4,7,-6];
 var xray_E         = [0,0,0,3,-6,0];
+var misc_S         = [10];
+var misc_E         = [0];
+
 
 //}}}
 //{{{  pst lists
@@ -4064,6 +4067,9 @@ lozBoard.prototype.evaluate = function (turn) {
   var xrayS       = 0;
   var xrayE       = 0;
   
+  var tempoS      = 0;
+  var tempoE      = 0;
+  
   //}}}
   //{{{  draw?
   
@@ -4942,7 +4948,14 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  tempo
   
-  tempo = (turn == WHITE) ? 10 : -10;
+  if (turn == WHITE) {
+    tempoS = misc_S[0];
+    tempoE = misc_E[0];
+  }
+  else {
+    tempoS = -misc_S[0];
+    tempoE = -misc_E[0];
+  }
   
   //}}}
   //{{{  combine
@@ -4959,10 +4972,8 @@ lozBoard.prototype.evaluate = function (turn) {
               (wNumRooks   - bNumRooks)   * VALUE_VECTOR_E[ROOK]   +
               (wNumQueens  - bNumQueens)  * VALUE_VECTOR_E[QUEEN];
   
-  var evalS = materialS + positionS + imbalanceS + mobilityS + reachS + cwtchS + xrayS;
-  var evalE = materialE + positionE + imbalanceE + mobilityE + reachE + cwtchE + xrayE;
-  
-  evalS += tempo;
+  var evalS = materialS + positionS + imbalanceS + mobilityS + reachS + cwtchS + xrayS + tempoS;
+  var evalE = materialE + positionE + imbalanceE + mobilityE + reachE + cwtchE + xrayE + tempoE;
   
   var e = (evalS * (TPHASE - phase) + evalE * phase) / TPHASE;
   
@@ -4982,7 +4993,7 @@ lozBoard.prototype.evaluate = function (turn) {
     uci.send('info string','mobility =',           mobilityS,  mobilityE);
     uci.send('info string','position =',           positionS,  positionE);
     uci.send('info string','material =',           materialS,  materialE);
-    uci.send('info string','tempo =',              tempo);
+    uci.send('info string','tempo =',              tempoS,     tempoE);
     uci.send('info string','num white (p to q) =', wNumPawns,wNumKnights,wNumBishops,wNumRooks,wNumQueens);
     uci.send('info string','num black (p to q) =', bNumPawns,bNumKnights,bNumBishops,bNumRooks,bNumQueens);
   }
