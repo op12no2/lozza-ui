@@ -1,7 +1,7 @@
 
 // https://github.com/op12no2
 
-var CONSOLEBUILD = 'c1.12';
+var CONSOLEBUILD = 'c1.13';
 
 var args   = lozGetURLArgs();
 var engine = null;
