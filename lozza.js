@@ -8,6 +8,7 @@ var BUILD = "2.1";
 //{{{  history
 /*
 
+2.1 16/09/21 Fix bench command.
 2.1 16/09/21 Add xray term to eval.
 2.1 08/09/21 Don't tune attack and passed pawn curves.
 2.1 08/09/21 Remove mobility offsets.
@@ -230,6 +231,14 @@ else if ((typeof WorkerGlobalScope) == 'undefined')
 //}}}
 //{{{  funcs
 
+//{{{  wbmap
+
+function wbmap (sq) {
+  var m = (143-sq)/12|0;
+  return 12*m + sq%12;
+}
+
+//}}}
 //{{{  myround
 
 function myround(x) {
@@ -6220,6 +6229,7 @@ function lozUCI () {
   this.tokens    = [];
   this.command   = '';
   this.spec      = {};
+  this.spec.id   = 'noname';
   this.debugging = false;
   this.nodefs    = 0;
   this.numMoves  = 0;

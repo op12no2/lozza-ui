@@ -48,7 +48,7 @@ function tx (m) {
     return;
   }
   $('#info').prepend('<b>> '+m+'</b><br>');
-  if (m == 'stop' || m == 'quit') {
+  if (m == 'quit') {
     engine.terminate();
     engine = null;
     $('#info').prepend('engine stopped<br>');
