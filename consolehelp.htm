@@ -25,28 +25,39 @@ body {padding: 20px;}
 <body>
 
 <p>This Lozza UI allows you to type UCI commands in a console-like manner.</p>
+
 <p><b>COMMAND EXTENSIONS</b></p>
-<p>In addition to the standard UCI protocol, the following commands can be used:-</p>
+
+<p>In addition to the standard UCI protocol, the following commands can be used, most of which also work offline; i.e. by running "node lozza.js".</p>
+
 <p><b>quit</b></p>
 <p>Kill the Lozza engine. In a web context you can use <b>start</b> to restart it.</p>
+
 <p><b>bench</b></p>
 <p>Do some self checks.</p>
+
 <p><b>start</b></p>
-<p>Start Lozza. i.e. create a new web worker containing the Lozza. After a start the following are automatically sent:-</p>
-<p>uci<br />ucinewgame<br />position startpos<br />board</p>
-<p>A start command is issued when the console UI starts.</p>
+<p>Web context only. Start Lozza. i.e. create a new web worker containing the Lozza. After a start the following are automatically sent: <b>uci, ucinewgame, position startpos, board</b>.</p>
+<p>A <b>start</b> command is issued when the console UI starts.</p>
+
 <p><b>clear</b></p>
-<p>Clear the previous output.</p>
+<p>Web context only. Clear the previous output.</p>
+
 <p><b>board</b></p>
-<p>Display a textual FEN and graphical representation of the current position.</p>
-<p><b>perft</b> depth d [moves m] [inner 1|0]</p>
-<p>Perform a perft analysis to a depth of d ply based on the current position. m is the expected number of moves and is optional, defaulting to 0. inner 1 will show inner node counts with the default being inner 0. You can see Lozza do various PERFTs <a href="https://op12no2.github.io/lozza-ui/perft.htm">here</a>.</p>
+<p>Display a textual FEN and in a web context a graphical representation of the current position.</p>
+
+<p><b>perft</b> <b>depth</b> d [<b>moves</b> m] [<b>inner</b> <b>1</b>|<b>0</b>]</p>
+<p>Perform a perft analysis to a depth of d ply based on the current position. m is the expected number of moves and is optional, defaulting to 0. <b>inner 1</b> will show inner node counts with the default being inner 0. You can see Lozza do various PERFTs <a href="https://op12no2.github.io/lozza-ui/perft.htm">here</a>.</p>
+
 <p><b>eval</b></p>
 <p>Show how the static evaluation of the current position is constructed.</p>
+
 <p><b>id</b> idstring</p>
 <p>Attach an identification label to the current position. Only relevant if UCI debugging is on.</p>
+
 <p><b>ping</b></p>
 <p>Check that the engine is alive.</p>
+
 <p><b>SHORTCUTS</b></p>
 <p><b>u</b> == ucinewgame</p>
 <p><b>q</b> == quit</p>
@@ -55,11 +66,11 @@ body {padding: 20px;}
 <p><b>g</b> == go</p>
 <p><b>g d</b> = go depth</p>
 <p><b>b</b> == board</p>
+
 <p><b>NOTES</b></p>
-<p>An explicit ucinewgame is needed to reset the transposition tables; and is required before the first position. It is optional during a game since it has no effect other than to clear the TT.</p>
-<p>Lozza plays it's best move when a go command completes, changing the current position.</p>
-<p>The current position is unchanged after a perft</p>
-<p>The start, stop and clear commands are not be available when using Lozza offline; for example with node.js. Similarly only the textual board representation is shown.</p>
+<p>An explicit <b>ucinewgame</b> is needed to reset the transposition tables; and is required before the first position. It is optional during a game since it has no effect other than to clear the TT.</p>
+<p>Lozza plays it's best move when a <b>go</b> command completes, changing the current position.</p>
+<p>The current position is unchanged after a <b>perft</b></p>
 <p><a href="https://op12no2.github.io/lozza-ui">Lozza Chess</a>
 </body>
 </html>
