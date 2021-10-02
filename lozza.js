@@ -1,15 +1,18 @@
-//"use strict"
 //
-// https://github.com/op12no2
-// testing and tuning results in testing/testing.log
+// https://github.com/op12no2/lozza
+//
+// A hand-coded Javascript chess engine inspired by Fabien Letouzey's Fruit 2.1.
 //
 
-var BUILD = "2.1";
+var BUILD       = "2.1";
+var USEPAWNHASH = 1;
 
 //{{{  history
 /*
 
+2.1 27/09/21 Add USEPAWNHASH - useful when testing.
 2.1 27/09/21 Set mob offsets to 0 while buggy.
+
 2.0 19/02/21 Add imbalance terms when no pawns.
 2.0 17/02/21 Tune all eval params.
 2.0 16/02/21 Swap mate and draw testing order in search.
@@ -4099,7 +4102,7 @@ lozBoard.prototype.evaluate = function (turn) {
   var idx   = this.ploHash & PTTMASK;
   var flags = this.pttFlags[idx];
   
-  if ((flags & PTT_EXACT) && this.pttLo[idx] == this.ploHash && this.pttHi[idx] == this.phiHash) {
+  if (USEPAWNHASH && (flags & PTT_EXACT) && this.pttLo[idx] == this.ploHash && this.pttHi[idx] == this.phiHash) {
     //{{{  get tt
     
     pawnsS = this.pttScoreS[idx];
