@@ -4,16 +4,15 @@
 // A hand-coded Javascript chess engine inspired by Fabien Letouzey's Fruit 2.1.
 //
 
-var BUILD       = "2.1n";
+var BUILD       = "2.1";
 var USEPAWNHASH = 1;
 var USENET      = 1;
-var USEHCE      = 1;
+var USEHCE      = 0;
 
 //{{{  history
 /*
 
-2.1 11/11/21 Add a diddy network.
-2.1 30/09/21 Add small network but disabled.
+2.1 11/11/21 Add a primitive little network.
 2.1 27/09/21 Set mob offsets to 0 while buggy.
 
 2.0 19/02/21 Add imbalance terms when no pawns.
@@ -25,7 +24,7 @@ var USEHCE      = 1;
 2.0 10/02/21 Use depth^3 (>=beta), depth^2 (>=alpha) and -depth  (< alpha) for history.
 2.0 09/02/21 Add -ve history scores for moves < alpha.
 2.0 08/02/21 Don't do LMP in a pvNode. We need a move!
-2.0 07/02/21 Don't _try and reduce when in check (optimisation).
+2.0 07/02/21 Don't try and reduce when in check (optimisation).
 2.0 06/02/21 Remove support for jsUCI.
 2.0 23/01/21 Tune piece values and PSTs.
 2.0 10/01/21 Rearrange eval params so they can be tuned.
@@ -5721,7 +5720,7 @@ lozBoard.prototype.evaluate = function (turn) {
     //}}}
   }
 
-  var stm = (-turn >> 31) | 1;
+  var stm = this.stm(turn);
 
   if (USEHCE && USENET) {
     if (this.verbose) {
@@ -5873,6 +5872,13 @@ lozBoard.prototype.ttInit = function () {
 //{{{  .hashCheck
 
 lozBoard.prototype.hashCheck = function (turn) {
+
+  if (USENET) {
+    var nn1 = this.netEval();
+    var nn2 = this.netFullEval();
+    if (myround(nn1) != myround(nn2))
+      console.log('NET',nn1,nn2);
+  }
 
   var loHash = 0;
   var hiHash = 0;
@@ -6094,6 +6100,13 @@ lozBoard.prototype.cleanPhase = function (p) {
     return TPHASE;
 
   return p;
+}
+
+//}}}
+//{{{  .stm
+
+lozBoard.prototype.stm = function (turn) {
+  return (-turn >> 31) | 1;
 }
 
 //}}}
