@@ -6,12 +6,13 @@
 
 var BUILD       = "2.1";
 var USEPAWNHASH = 1;
-var USEHCE      = 1;
-var USENET      = 0;
+var USEHCE      = 0;
+var USENET      = 1;
 
 //{{{  history
 /*
 
+2.1 13/11/21 Change futility margin from 120 to 100.
 2.1 13/11/21 Don't do EG tempo.
 2.1 11/11/21 Add a primitive little network.
 2.1 27/09/21 Set mob offsets to 0 while buggy.
@@ -2230,7 +2231,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var numSlides      = 0;
   var givesCheck     = INCHECK_UNKNOWN;
   var keeper         = false;
-  var doFutility     = !inCheck && depth <= 4 && (standPat + depth * 120) < alpha && !lonePawns;
+  var doFutility     = !inCheck && depth <= 4 && (standPat + depth * 100) < alpha && !lonePawns;
   var doLMR          = !inCheck && depth >= 3;
   var doLMP          = !pvNode && !inCheck && depth <= 2 && !lonePawns;
   var doIID          = !node.hashMove && pvNode && depth > 3;
@@ -2431,7 +2432,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
   
   //}}}
 
-  if (depth > -2)
+  if (depth > -3)
     var inCheck = board.isKingAttacked(nextTurn);
   else
     var inCheck = 0;
@@ -2791,17 +2792,23 @@ function lozBoard () {
 
 lozBoard.prototype.hashCheck = function (turn) {
 
+  var t1 = lozza.uci.debugging;
+  var t2 = USENET
+  var t3 = USEHCE
+  var t4 = USEPAWNHASH
+
   lozza.uci.debugging = true;
+  USENET              = 1;
+  USEHCE              = 1;
+  USEPAWNHASH         = 1;
 
   var evalS = 0;
   var evalE = 0;
 
-  if (USENET) {
-    var nn1 = this.netEval();
-    var nn2 = this.netFullEval();
-    if (myround(nn1) != myround(nn2))
-      lozza.uci.debug('NET',nn1,nn2);
-  }
+  var nn1 = this.netEval();
+  var nn2 = this.netFullEval();
+  if (myround(nn1) != myround(nn2))
+    lozza.uci.debug('NET',nn1,nn2);
 
   var loHash = 0;
   var hiHash = 0;
@@ -2870,7 +2877,10 @@ lozBoard.prototype.hashCheck = function (turn) {
   if (this.runningEvalE != evalE)
     lozza.uci.debug('MATE',this.runningEvalE,evalE);
 
-  lozza.uci.debugging = false;
+  lozza.uci.debugging = t1;
+  USENET              = t2;
+  USEHCE              = t3;
+  USEPAWNHASH         = t4;
 }
 
 //}}}
