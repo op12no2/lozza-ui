@@ -6,17 +6,17 @@
 
 var BUILD       = "2.1";
 var USEPAWNHASH = 1;
-var USEHCE      = 1;
 var USENET      = 0;
 var DEBUG       = 0;      // turn on if using board.hashCheck()
 
 //{{{  history
 /*
 
-2.1 01/12/21 Add penalty when no moves.
+2.1 08/12/21 More aggressive pruning.
+2.1 06/12/21 Crude bench command.
+2.1 01/12/21 Add mobility penalty when no moves.
 2.1 01/12/21 Optimise Q a bit.
-2.1 01/12/21 Move node count to Q so go nodes means something.
-2.1 13/11/21 Change futility margin from 120 to 100.
+2.1 13/11/21 Change futility from 120 to 100.
 2.1 13/11/21 Don't do EG tempo.
 2.1 11/11/21 Add a primitive little network.
 2.1 27/09/21 Set mob offsets to 0 while buggy.
@@ -226,15 +226,20 @@ var HOST_NODEJS  = 1;
 var HOST_CONSOLE = 2;
 var HOSTS        = ['Web','Node','Console'];
 
-var lozzaHost = HOST_WEB;
+var lozzaHost  = HOST_WEB;
+var LAZYUPDATE = 500;
 
-if ((typeof process) != 'undefined')
+if ((typeof process) != 'undefined') {
 
-  lozzaHost = HOST_NODEJS;
+  lozzaHost  = HOST_NODEJS;
+  LAZYUPDATE = 10000;
+}
 
-else if ((typeof WorkerGlobalScope) == 'undefined')
+else if ((typeof WorkerGlobalScope) == 'undefined') {
 
-  lozzaHost = HOST_CONSOLE;
+  lozzaHost  = HOST_CONSOLE;
+  LAZYUPDATE = 1000;
+}
 
 //}}}
 //{{{  funcs
@@ -330,6 +335,7 @@ var ASP_MIN         = 10;
 var EMPTY           = 0;
 var UCI_FMT         = 0;
 var SAN_FMT         = 1;
+var FUTILITY        = 100;
 
 var WHITE   = 0x0;                // toggle with: ~turn & COLOR_MASK
 var BLACK   = 0x8;
@@ -2176,7 +2182,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 
   //{{{  prune?
   
-  if (doBeta && depth <= 2 && (standPat - depth * 200) >= beta) {
+  if (doBeta && depth <= 3 && (standPat - depth * FUTILITY) >= beta) {
     return beta;
   }
   
@@ -2191,7 +2197,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   R = 3;
   
-  if (doBeta && depth > 2 && standPat > beta) {
+  if (doBeta && depth >= 2 && standPat >= beta) {
   
     board.loHash ^= board.loEP[board.ep];
     board.hiHash ^= board.hiEP[board.ep];
@@ -2233,9 +2239,9 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var numSlides      = 0;
   var givesCheck     = INCHECK_UNKNOWN;
   var keeper         = false;
-  var doFutility     = !inCheck && depth <= 4 && (standPat + depth * 100) < alpha && !lonePawns;
+  var doFutility     = !inCheck && depth <= 4 && (standPat + depth * FUTILITY) < alpha && !lonePawns;
   var doLMR          = !inCheck && depth >= 3;
-  var doLMP          = !pvNode && !inCheck && depth <= 2 && !lonePawns;
+  var doLMP          = !inCheck && !pvNode && depth <= 2 && !lonePawns;
   var doIID          = !node.hashMove && pvNode && depth > 3;
 
   //{{{  IID
@@ -2413,7 +2419,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
     this.stats.selDepth = node.ply;
   
   if (!node.childNode) {
-    //this.uci.debug('Q DEPTH');
+    this.uci.debug('Q DEPTH');
     return this.board.evaluate(turn);
   }
   
@@ -2450,7 +2456,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta) {
 
   while (move = node.getNextMove()) {
 
-    //{{{  futile?
+    //{{{  prune?
     
     if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
     
@@ -4376,8 +4382,6 @@ lozBoard.prototype.evaluate = function (turn) {
   var uci = this.lozza.uci;
   var b   = this.b;
   
-  var phase = this.cleanPhase(this.phase);
-  
   var numPieces = this.wCount + this.bCount;
   
   var wNumQueens  = this.wCounts[QUEEN];
@@ -4391,29 +4395,6 @@ lozBoard.prototype.evaluate = function (turn) {
   var bNumBishops = this.bCounts[BISHOP];
   var bNumKnights = this.bCounts[KNIGHT];
   var bNumPawns   = this.bCounts[PAWN];
-  
-  var wKingSq   = this.wList[0];
-  var wKingRank = RANK[wKingSq];
-  var wKingFile = FILE[wKingSq];
-  
-  var bKingSq   = this.bList[0];
-  var bKingRank = RANK[bKingSq];
-  var bKingFile = FILE[bKingSq];
-  
-  var wKingBits = (wKingFile-1) << 2;
-  var wKingMask = 0xF << wKingBits;
-  
-  var bKingBits = (bKingFile-1) << 2;
-  var bKingMask = 0xF << bKingBits;
-  
-  var bonus   = 0;  // generic.
-  var penalty = 0;  // generic.
-  
-  var WKZ = WKZONES[wKingSq];
-  var BKZ = BKZONES[bKingSq];
-  
-  var wCanBeAttacked = bNumQueens && (bNumRooks || bNumBishops || bNumKnights);
-  var bCanBeAttacked = wNumQueens && (wNumRooks || wNumBishops || wNumKnights);
   
   //}}}
   //{{{  draw?
@@ -4452,12 +4433,49 @@ lozBoard.prototype.evaluate = function (turn) {
   
   //}}}
 
-  var hceE = 0;
-  var netE = 0;
-  var E    = 0;
+  var e = 0;
 
-  if (USEHCE) {
+  if (USENET) {
+    //{{{  net
+    
+    e = this.netEval();
+    
+    e = myround(e) | 0;
+    
+    if (this.verbose) {
+      uci.send('info string','net eval =',e);
+    }
+    
+    //}}}
+  }
+
+  else {
     //{{{  hce
+    
+    var phase = this.cleanPhase(this.phase);
+    
+    var wKingSq   = this.wList[0];
+    var wKingRank = RANK[wKingSq];
+    var wKingFile = FILE[wKingSq];
+    
+    var bKingSq   = this.bList[0];
+    var bKingRank = RANK[bKingSq];
+    var bKingFile = FILE[bKingSq];
+    
+    var wKingBits = (wKingFile-1) << 2;
+    var wKingMask = 0xF << wKingBits;
+    
+    var bKingBits = (bKingFile-1) << 2;
+    var bKingMask = 0xF << bKingBits;
+    
+    var bonus   = 0;  // generic.
+    var penalty = 0;  // generic.
+    
+    var WKZ = WKZONES[wKingSq];
+    var BKZ = BKZONES[bKingSq];
+    
+    var wCanBeAttacked = bNumQueens && (bNumRooks || bNumBishops || bNumKnights);
+    var bCanBeAttacked = wNumQueens && (wNumRooks || wNumBishops || wNumKnights);
     
     //{{{  P
     
@@ -5702,13 +5720,15 @@ lozBoard.prototype.evaluate = function (turn) {
     evalS += kingS;
     evalE += kingE;
     
-    hceE = (evalS * (TPHASE - phase) + evalE * phase) / TPHASE;
+    e = (evalS * (TPHASE - phase) + evalE * phase) / TPHASE;
+    
+    e = myround(e) | 0;
     
     //}}}
     //{{{  verbose
     
     if (this.verbose) {
-      uci.send('info string','phased eval =',myround(hceE)|0);
+      uci.send('info string','phased eval =',e);
       uci.send('info string','phase =',phase);
       uci.send('info string','eval =',evalS,evalE);
       uci.send('info string','trapped =',trappedS,trappedE);
@@ -5729,32 +5749,7 @@ lozBoard.prototype.evaluate = function (turn) {
     //}}}
   }
 
-  if (USENET) {
-    //{{{  net
-    
-    netE = this.netEval();
-    
-    if (this.verbose) {
-      uci.send('info string','net eval =',myround(netE)|0);
-    }
-    
-    //}}}
-  }
-
-  var stm = this.stm(turn);
-
-  if (USEHCE && USENET) {
-    if (this.verbose) {
-      uci.send('info string','hybrid eval =',myround((hceE+netE)/2)|0);
-    }
-    return stm * myround((hceE + netE) / 2) | 0;
-  }
-  else if (USEHCE) {
-    return stm * myround(hceE) | 0;
-  }
-  else {
-    return stm * myround(netE) | 0;
-  }
+  return this.stm(turn) * myround(e) | 0;
 }
 
 //}}}
@@ -6767,7 +6762,7 @@ lozStats.prototype.lazyUpdate = function () {
 
   this.checkTime();
 
-  if (Date.now() - this.splitTime > 500) {
+  if (Date.now() - this.splitTime > LAZYUPDATE) {
     this.splits++;
     this.update();
     this.splitTime = Date.now();
@@ -6963,6 +6958,9 @@ onmessage = function(e) {
     if (uci.command == 'u')
       uci.command = 'ucinewgame';
     
+    if (uci.command == 'x')
+      uci.command = 'bench';
+    
     if (uci.command == 'b')
       uci.command = 'board';
     
@@ -7128,7 +7126,9 @@ onmessage = function(e) {
         }
       }
       
-      uci.debug('bench done ok')
+      onmessage({data: 'ucinewgame'});
+      onmessage({data: 'position startpos'});
+      onmessage({data: 'go depth 20'});
       
       uci.debugging = 0;
       
