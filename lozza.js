@@ -10,7 +10,9 @@ var USEPAWNHASH = 1;
 //{{{  history
 /*
 
-2.1 17/12/21 Optimise pruning to pre makeMove(). LTC 13.7, STC WIP.
+2.1 20/12/21 Handle old Node versions WRT stdin.resume() for CCRL;
+2.1 20/12/21 More aggressive NMP.
+2.1 17/12/21 Optimise pruning to pre makeMove(). stc 19, ltc 14 elo v 2.0a.
 
 2.0a 27/09/21 Fix timeouts.
 2.0a 27/09/21 Add USEPAWNHASH - useful when testing.
@@ -6624,13 +6626,16 @@ lozza.board.lozza = lozza;
 
 if (lozzaHost == HOST_NODEJS) {
 
+  var USERESUME = parseFloat(process.version.substring(1)) > 9;
+
   lozza.uci.nodefs = require('fs');
 
   process.stdin.setEncoding('utf8');
 
   process.stdin.on('readable', function() {
     var chunk = process.stdin.read();
-    process.stdin.resume();
+    if (USERESUME)
+      process.stdin.resume();
     if (chunk !== null) {
       onmessage({data: chunk});
     }
