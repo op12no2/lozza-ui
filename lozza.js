@@ -10,8 +10,8 @@ var USEPAWNHASH = 1;
 //{{{  history
 /*
 
-2.1 20/12/21 Handle old Node versions WRT stdin.resume() for CCRL;
-2.1 17/12/21 Optimise pruning to pre makeMove(). stc 19, ltc 14 elo v 2.0a.
+2.1 20/12/21 Handle old Node versions WRT stdin.resume() for CCRL.
+2.1 17/12/21 Optimise pruning to pre makeMove().
 
 2.0a 27/09/21 Fix timeouts.
 2.0a 27/09/21 Add USEPAWNHASH - useful when testing.
