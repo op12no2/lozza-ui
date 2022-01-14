@@ -304,8 +304,8 @@ $(function() {
     position     : startFromUI
   });
 
-  $(lozData.idInfo).prepend('Version ' + BUILD + ' ' + PLAYBUILD + '<br>');
-  engine.postMessage('uci')
+  //$(lozData.idInfo).prepend('Version ' + BUILD + ' ' + PLAYBUILD + '<br>');
+  //engine.postMessage('uci')
   engine.postMessage('ucinewgame')
   engine.postMessage('debug off')
 

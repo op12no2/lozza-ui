@@ -184,8 +184,8 @@ $(function() {
     engine           = new Worker(lozData.source);
     engine.onmessage = lozStandardRx;
     $(lozData.idInfo).html('');
-    $(lozData.idInfo).prepend('Version ' + BUILD + ' ' + FENBUILD + '<br>');
-    engine.postMessage('uci');
+    //$(lozData.idInfo).prepend('Version ' + BUILD + ' ' + FENBUILD + '<br>');
+    //engine.postMessage('uci');
   }
 
 });

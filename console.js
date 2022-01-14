@@ -37,7 +37,7 @@ function tx (m) {
       engine.terminate();
     engine           = new Worker(lozData.source);
     engine.onmessage = lozStandardRx;
-    tx('uci');
+    //tx('uci');
     tx('ucinewgame');
     tx('position startpos');
     tx('board');
@@ -78,7 +78,7 @@ $(function() {
   
   //}}}
 
-  $(lozData.idInfo).prepend('Version ' + BUILD + ' ' + CONSOLEBUILD + '<br>');
+  //$(lozData.idInfo).prepend('Version ' + BUILD + ' ' + CONSOLEBUILD + '<br>');
 
   tx('start');
 
