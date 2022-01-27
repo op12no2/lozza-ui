@@ -1,6 +1,6 @@
 
 var verbose   = 0;    // display games
-var moveTime  = 100;  // ms
+var moveTime  = 50;  // ms
 var selOption = 0;    // so sendOption func can see it
 
 var optionV = [315,320,325];
