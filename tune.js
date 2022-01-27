@@ -1,17 +1,6 @@
 
-var verbose   = 0;    // display games
-var moveTime  = 50;  // ms
-var selOption = 0;    // so sendOption func can see it
-
-var optionV = [315,320,325];
-
-function sendOption () {
-  //var c = 'pstsquare piece 5 sq 113 mid ' + optionV[selOption];
-  //var c = 'pvalue knight ' + optionV[selOption];
-  //console.log(selOption,c);
-  //return c;
-  return;
-}
+var verbose   = 0;   // display each move
+var moveTime  = 50;  // ms (+ random element)
 
 ///////////////////////////////
 
@@ -20,9 +9,6 @@ if (!window.Worker) {
   exit;
 }
 
-var numOptions  = optionV.length;
-var optionR     = [];
-var optionC     = [];
 var args        = lozGetURLArgs();
 var board       = null;
 var chess       = null;
@@ -39,35 +25,8 @@ var id          = 0;
 var timeThen    = Date.now();
 var stopping    = 0;
 
-for (var i=0; i < numOptions; i++) {
-  optionR[i] = 0.0;
-  optionC[i] = 0;
-}
-
-function pickOption () {
-
-  selOption = -1;
-  minCount = 9999999999;
-  for (var i=0; i < numOptions; i++) {
-    if (optionC[i] < minCount) {
-      minCount = optionC[i];
-      selOption = i;
-    }
-  }
-
-  if (selOption == -1)
-    selOption = Math.random() * numOptions | 0;
-
-  //if (selOption < 0 || selOption >= numOptions)
-    //console.log(selOption,'option out of bounds');
-  //else
-    //console.log('trying value',optionV[selOption],'...');
-  //return selOption;
-}
-
 function randMoveTime () {
   var r = moveTime + ((moveTime/5) * Math.random()) - (moveTime/10) | 0;
-  //console.log(r);
   return r;
 }
 
@@ -78,11 +37,8 @@ function randomise () {
   var r = 0;
   for (var i=0; i<m; i++)
     r = r + Math.random();
-  //console.log(r);
   return r;
 }
-
-//console.log('numOpenings',numOpenings);
 
 lozData.page    = 'tune.htm';
 lozData.idInfo  = '#info';
@@ -177,18 +133,15 @@ function showEnd (n) {
     if (chess.in_checkmate()) {
       if (n == 1) {
         e1Wins += 1;
-        //optionR[selOption] = optionR[selOption] - 1.0;
       }
       else if (n == 2) {
         e2Wins += 1;
-        optionR[selOption] = optionR[selOption] + 1.0;
       }
       else
         console.log('showEnd bad n value',n);
     }
     else {
       numDraws += 1;
-      optionR[selOption] = optionR[selOption] + 0.5;
     }
 
     numGames++;
@@ -202,8 +155,6 @@ function showEnd (n) {
 
     $(lozData.idInfo).html('' + numGames + ': ' + e1Wins + '-' + e2Wins + '-' + numDraws + ' ' + e1Percent + '%<br>');
 
-    //console.log(optionC,optionR,optionV);
-
     var timeNow = Date.now();
     if (numGames % 100 == 0)
       console.log('games per hour',((numGames/(timeNow-timeThen))*1000*60*60)|0);
@@ -214,7 +165,6 @@ function showEnd (n) {
 
   var choose    = Math.random() * numOpenings | 0;
   var opening   = OPENINGS[choose];
-  //console.log(choose);
   var openMoves = opening.split(' ');
 
   chess.reset();
@@ -238,13 +188,9 @@ function showEnd (n) {
   e1.postMessage('ucinewgame')
   e1.postMessage('debug off')
 
-  selOption = pickOption();
-  optionC[selOption] = optionC[selOption] + 1;
-
   e2.postMessage('uci')
   e2.postMessage('ucinewgame')
   e2.postMessage('debug off')
-  e2.postMessage(''+sendOption())
 
   if (first == 1) {
     e1.postMessage('position startpos moves ' + strMoves());
