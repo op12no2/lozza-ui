@@ -2,7 +2,6 @@
 // ccc-n from http://www.talkchess.com/forum/viewtopic.php?t=47318
 
 var qp = [
-  ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w KQ   - 0 1', 'depth 3 moves 4893',     'castling-1'],
   ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w Q    - 0 1', 'depth 3 moves 4729',     'castling-2'],
   ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w K    - 0 1', 'depth 3 moves 4686',     'castling-3'],
   ['fen 4k3/8/8/8/8/8/R7/R3K2R                                  w -    - 0 1', 'depth 3 moves 4522',     'castling-4'],
@@ -15,6 +14,7 @@ var qp = [
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq - 0 1', 'depth 2 moves 400',      'cpw-pos1-2'],
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq - 0 1', 'depth 3 moves 8902',     'cpw-pos1-3'],
   ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq - 0 1', 'depth 4 moves 197281',   'cpw-pos1-4'],
+  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq - 0 1', 'depth 6 moves 119060324','cpw-pos1-6'],
   ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq - 0 1', 'depth 1 moves 42',       'cpw-pos5-1'],
   ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq - 0 1', 'depth 2 moves 1352',     'cpw-pos5-2'],
   ['fen rnbqkb1r/pp1p1ppp/2p5/4P3/2B5/8/PPP1NnPP/RNBQK2R        w KQkq - 0 1', 'depth 3 moves 53392',    'cpw-pos5-3'],
@@ -49,7 +49,11 @@ var qp = [
   ['fen 8/8/8/8/1k6/8/K1p5/8                                    b -    - 0 1', 'depth 7 moves 567584',   'ccc-24'],
   ['fen 8/8/2k5/5q2/5n2/8/5K2/8                                 b -    - 0 1', 'depth 4 moves 23527',    'ccc-25'],
   ['fen 8/5k2/8/5N2/5Q2/2K5/8/8                                 w -    - 0 1', 'depth 4 moves 23527',    'ccc-26'],
-  ['fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR             w KQkq - 0 1', 'depth 6 moves 119060324','cpw-pos1-6']
+  ['fen 8/2pkp3/8/RP3P1Q/6B1/8/2PPP3/rb1K1n1r                   w -    - 0 1', 'depth 6 moves 181153194','ob1'],
+  ['fen 8/2ppp3/8/RP1k1P1Q/8/8/2PPP3/rb1K1n1r                   w -    - 0 1', 'depth 6 moves 205552081','ob2'],
+  ['fen 8/8/3q4/4r3/1b3n2/8/3PPP2/2k1K2R                        w K    - 0 1', 'depth 6 moves 207139531','ob3'],
+  ['fen 4r2r/RP1kP1P1/3P1P2/8/8/3ppp2/1p4p1/4K2R                b K    - 0 1', 'depth 6 moves 314516438','ob4'],
+  ['fen r6r/1P4P1/2kPPP2/8/8/3ppp2/1p4p1/R3K2R                  w KQ   - 0 1', 'depth 6 moves 975944981','ob5']
 ];
 
 lozData.idInfo  = '#info';
