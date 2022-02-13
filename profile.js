@@ -8,5 +8,5 @@ lozza.onmessage = function (e) {
 onmessage({data: 'uci'});             // get build etc
 onmessage({data: 'ucinewgame'});      // reset TT
 onmessage({data: 'position startpos'});
-onmessage({data: 'go depth 10'});     // 10 ply search
+onmessage({data: 'go depth 16'});     //
 
