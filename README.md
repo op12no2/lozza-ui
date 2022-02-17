@@ -4,7 +4,7 @@ This is a sister project to my Javascript chess engine Lozza - https://github.co
 
 You can try them here - https://op12no2.github.io/lozza-ui
 
-They are designed to be mobile-friendly.  There is no app for the user interfaces but you can add screen link so that they are one click away. 
+They are designed to be mobile-friendly.  There is no app for the user interfaces but you can add a home screen link so that they are one click away. 
 
 The mate-in-one game sounds easy, but it's often hard to see the mate quickly.
 
