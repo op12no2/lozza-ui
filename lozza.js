@@ -4,7 +4,7 @@
 // A Javascript chess engine inspired by Fabien Letouzey's Fruit 2.1.
 //
 
-var BUILD       = "2.2";
+var BUILD       = "2.2a";
 var USEPAWNHASH = 1;
 var LICHESS     = 0;
 
@@ -5451,7 +5451,6 @@ lozBoard.prototype.evaluate = function (turn) {
     uci.send('info string','knights =     ',knightsS,knightsE);
     uci.send('info string','pawns =       ',pawnsS,pawnsE);
     uci.send('info string','tempo =       ',tempoS,tempoE);
-  
   }
   
   //}}}
