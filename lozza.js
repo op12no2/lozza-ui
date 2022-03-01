@@ -4,14 +4,12 @@
 // A Javascript chess engine inspired by Fabien Letouzey's Fruit 2.1.
 //
 
-var BUILD       = "2.2b";
+var BUILD       = "2.2";
 var USEPAWNHASH = 1;
 var LICHESS     = 0;
 
 //{{{  history
 /*
-
-2.2 23/02/22 Don't use TT in PV node.
 
 */
 
