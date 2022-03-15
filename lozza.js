@@ -4,14 +4,22 @@
 // A Javascript chess engine inspired by Fabien Letouzey's Fruit 2.1.
 //
 
-var BUILD       = "2.3a";
+var BUILD       = "2.3";
 var USEPAWNHASH = 1;
 var LICHESS     = 0;
 
 //{{{  history
 /*
 
-2.2 23/02/22 Only call eval() as needed in search.
+2.1 14/02/22 Non-linear mobility.
+2.1 11/02/22 Split up mobility into mobility, tightness and tension.
+2.1 28/01/22 Add Lichess support.
+2.1 21/01/22 Fixate on one square in Q search from depth -12.
+2.1 12/01/22 Retune using gd tuner.
+2.1 06/01/22 Add eval feature extraction code (for gd tuner) which is removed on release.
+2.1 06/01/22 Extract imbalance as a separate eval term.
+2.1 20/12/21 Handle old node versions WRT stdin.resume(). I think.
+2.1 17/12/21 Optimise pruning to pre makeMove().
 
 */
 
@@ -1589,7 +1597,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var nextTurn = ~turn & COLOR_MASK;
   var score    = 0;
   var pvNode   = beta != (alpha + 1);
-  var eval     = INFINITY;
 
   //{{{  mate distance pruning
   
@@ -1641,7 +1648,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   score = board.ttGet(node, depth, alpha, beta);  // sets/clears node.hashMove.
   
-  if (!pvNode && score != TTSCORE_UNKNOWN) {
+  if (score != TTSCORE_UNKNOWN) {
     return score;
   }
   
@@ -1653,17 +1660,13 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var R         = 0;
   var E         = 0;
   var lonePawns = (turn == WHITE && board.wCount == board.wCounts[PAWN]+1) || (turn == BLACK && board.bCount == board.bCounts[PAWN]+1);
+  var standPat  = board.evaluate(turn);
   var doBeta    = !pvNode && !inCheck && !lonePawns && nullOK == NULL_Y && !board.betaMate(beta);
 
   //{{{  prune?
   
-  if (doBeta && depth <= 2) {
-  
-    if (eval == INFINITY)
-      eval = board.evaluate(turn);
-  
-    if ((eval - depth * 200) >= beta)
-      return beta;
+  if (doBeta && depth <= 2 && (standPat - depth * 200) >= beta) {
+    return beta;
   }
   
   //}}}
@@ -1677,40 +1680,34 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   R = 3;
   
-  if (doBeta && depth > 2) {
+  if (doBeta && depth > 2 && standPat > beta) {
   
-    if (eval == INFINITY)
-      eval = board.evaluate(turn);
+    board.loHash ^= board.loEP[board.ep];
+    board.hiHash ^= board.hiEP[board.ep];
   
-    if (eval > beta) {
+    board.ep = 0; // what else?
   
-      board.loHash ^= board.loEP[board.ep];
-      board.hiHash ^= board.hiEP[board.ep];
+    board.loHash ^= board.loEP[board.ep];
+    board.hiHash ^= board.hiEP[board.ep];
   
-      board.ep = 0; // what else?
+    board.loHash ^= board.loTurn;
+    board.hiHash ^= board.hiTurn;
   
-      board.loHash ^= board.loEP[board.ep];
-      board.hiHash ^= board.hiEP[board.ep];
+    score = -this.alphabeta(node.childNode, depth-R-1, nextTurn, -beta, -beta+1, NULL_N, INCHECK_UNKNOWN);
   
-      board.loHash ^= board.loTurn;
-      board.hiHash ^= board.hiTurn;
+    node.uncache();
   
-      score = -this.alphabeta(node.childNode, depth-R-1, nextTurn, -beta, -beta+1, NULL_N, INCHECK_UNKNOWN);
+    if (this.stats.timeOut)
+      return;
   
-      node.uncache();
-  
-      if (this.stats.timeOut)
-        return;
-  
-      if (score >= beta) {
-        if (board.betaMate(score))
-          score = beta;
-        return score;
-      }
-  
-      if (this.stats.timeOut)
-        return;
+    if (score >= beta) {
+      if (board.betaMate(score))
+        score = beta;
+      return score;
     }
+  
+    if (this.stats.timeOut)
+      return;
   }
   
   R = 0;
@@ -1727,19 +1724,10 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var numSlides      = 0;
   var givesCheck     = INCHECK_UNKNOWN;
   var keeper         = false;
+  var doFutility     = !inCheck && depth <= 4 && (standPat + depth * 120) < alpha && !lonePawns;
   var doLMR          = !inCheck && depth >= 3;
   var doLMP          = !pvNode && !inCheck && depth <= 2 && !lonePawns;
   var doIID          = !node.hashMove && pvNode && depth > 3;
-  var doFutility     = false;
-
-  if (!lonePawns && !inCheck && depth <= 4) {
-
-    if (eval == INFINITY)
-      eval = board.evaluate(turn);
-
-    if ((eval + depth * 120) < alpha)
-      doFutility = true;
-  }
 
   //{{{  IID
   //
@@ -1909,9 +1897,9 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
   //{{{  housekeeping
   
-  //this.stats.checkTime();
-  //if (this.stats.timeOut)
-    //return;
+  this.stats.checkTime();
+  if (this.stats.timeOut)
+    return;
   
   if (node.ply > this.stats.selDepth)
     this.stats.selDepth = node.ply;
@@ -5471,6 +5459,7 @@ lozBoard.prototype.evaluate = function (turn) {
     uci.send('info string','knights =     ',knightsS,knightsE);
     uci.send('info string','pawns =       ',pawnsS,pawnsE);
     uci.send('info string','tempo =       ',tempoS,tempoE);
+  
   }
   
   //}}}
