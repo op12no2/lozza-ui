@@ -11,6 +11,7 @@ var LICHESS     = 0;
 //{{{  history
 /*
 
+2.3 18/03/22 Make sure everything is fail soft.
 2.3 16/03/22 Base aspiration window on previous scores.
 2.3 16/03/22 Don't use TT in PV node.
 
@@ -1555,8 +1556,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     return bestScore;
   }
   else {
-    board.ttPut(TT_ALPHA, depth, oAlpha,    bestMove, node.ply, alpha, beta);
-    return oAlpha;
+    board.ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta);
+    return bestScore;
   }
 }
 
@@ -1653,8 +1654,10 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 
   //{{{  prune?
   
-  if (doBeta && depth <= 2 && (standPat - depth * 200) >= beta) {
-    return beta;
+  score = standPat - depth * 200;
+  
+  if (doBeta && depth <= 2 && score >= beta) {
+    return score;
   }
   
   //}}}
@@ -1873,8 +1876,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     return bestScore;
   }
   else {
-    board.ttPut(TT_ALPHA, depth, oAlpha,    bestMove, node.ply, alpha, beta);
-    return oAlpha;
+    board.ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta);
+    return bestScore;
   }
 }
 
