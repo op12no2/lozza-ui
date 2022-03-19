@@ -2140,7 +2140,7 @@ function lozBoard () {
   this.ttDepth   = new Int8Array(TTSIZE);         // allow -ve depths but currently not used for q.
   this.ttMove    = new Uint32Array(TTSIZE);       // see constants for structure.
   this.ttScore   = new Int16Array(TTSIZE);
-  this.ttAge     = new Int8ClampedArray(TTSIZE);
+  this.ttAge     = new UInt8ClampedArray(TTSIZE);
 
   this.pttLo     = new Int32Array(PTTSIZE);
   this.pttHi     = new Int32Array(PTTSIZE);
@@ -5489,7 +5489,7 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
 
   var idx = this.loHash & TTMASK;
 
-  //if (this.ttType[idx] == TT_EXACT && this.loHash == this.ttLo[idx] && this.hiHash == this.ttHi[idx] && this.ttDepth[idx] > depth && this.ttScore[idx] > alpha && this.ttScore[idx] < beta) {
+  //if (this.ttType[idx] != TT_EMPTY && this.ttDepth[idx] > depth && this.ttAge[idx] >= this.hashAge) {
     //return;
   //}
 
@@ -5508,6 +5508,7 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
   this.ttDepth[idx] = depth;
   this.ttScore[idx] = score;
   this.ttMove[idx]  = move;
+  this.ttAge[idx]   = this.hashAge;
 }
 
 //}}}
