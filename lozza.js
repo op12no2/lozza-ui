@@ -2140,7 +2140,7 @@ function lozBoard () {
   this.ttDepth   = new Int8Array(TTSIZE);         // allow -ve depths but currently not used for q.
   this.ttMove    = new Uint32Array(TTSIZE);       // see constants for structure.
   this.ttScore   = new Int16Array(TTSIZE);
-  this.ttAge     = new UInt8ClampedArray(TTSIZE);
+  this.ttAge     = new Uint8ClampedArray(TTSIZE);
 
   this.pttLo     = new Int32Array(PTTSIZE);
   this.pttHi     = new Int32Array(PTTSIZE);
