@@ -11,6 +11,7 @@ var LICHESS     = 0;
 //{{{  history
 /*
 
+2.3 19/03/22 More aggressive pruning in q search.
 2.3 18/03/22 Make sure everything is fail soft.
 2.3 16/03/22 Base aspiration window on previous scores.
 2.3 16/03/22 Don't use TT in PV node.
@@ -1268,6 +1269,8 @@ lozChess.prototype.go = function() {
   var board = this.board;
   var spec  = this.uci.spec;
 
+  board.hashAge++;
+
   //{{{  sort out spec
   
   //this.uci.send('info hashfull',myround(1000*board.hashUsed/TTSIZE));
@@ -1882,7 +1885,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 }
 
 //}}}
-//{{{  .quiescence
+//{{{  .qsearch
 
 lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
@@ -1939,14 +1942,14 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
   while (move = node.getNextMove()) {
 
-    //{{{  prune?
-    
-    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
-    
+    var toPiece = ((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK;
+
+    if (!toPiece)
+      toPiece = PAWN;  // EP
+
+    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 100 + VALUE_VECTOR[toPiece] < alpha) {
       continue;
     }
-    
-    //}}}
 
     board.makeMove(node,move);
 
@@ -2106,6 +2109,7 @@ function lozBoard () {
   this.verbose      = false;
   this.mvFmt        = 0;
   this.hashUsed     = 0;
+  this.hashAge      = 0;
 
   this.b = new Uint16Array(144);    // pieces.
   this.z = new Uint16Array(144);    // indexes to w|bList.
@@ -2133,9 +2137,10 @@ function lozBoard () {
   this.ttLo      = new Int32Array(TTSIZE);
   this.ttHi      = new Int32Array(TTSIZE);
   this.ttType    = new Uint8Array(TTSIZE);
-  this.ttDepth   = new Int8Array(TTSIZE);   // allow -ve depths but currently not used for q.
-  this.ttMove    = new Uint32Array(TTSIZE); // see constants for structure.
+  this.ttDepth   = new Int8Array(TTSIZE);         // allow -ve depths but currently not used for q.
+  this.ttMove    = new Uint32Array(TTSIZE);       // see constants for structure.
   this.ttScore   = new Int16Array(TTSIZE);
+  this.ttAge     = new Int8ClampedArray(TTSIZE);
 
   this.pttLo     = new Int32Array(PTTSIZE);
   this.pttHi     = new Int32Array(PTTSIZE);
@@ -5588,6 +5593,7 @@ lozBoard.prototype.ttInit = function () {
   this.pttFlags.fill(TT_EMPTY);
 
   this.hashUsed = 0;
+  this.hashAge  = 0;
 }
 
 //}}}
