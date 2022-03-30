@@ -11,10 +11,10 @@ var LICHESS     = 0;
 //{{{  history
 /*
 
-2.3 19/03/22 More aggressive pruning in q search.
-2.3 18/03/22 Make sure everything is fail soft.
-2.3 16/03/22 Base aspiration window on previous scores.
-2.3 16/03/22 Don't use TT in PV node.
+2.3 30/03/22 Allow mate scores from NMP.
+2.3 30/03/22 Use fail soft for beta pruning.
+2.3 23/03/22 Fix TT bug which was saving alpha not bestScore.
+2.3 23/02/22 Don't use TT in PV node.
 
 */
 
@@ -142,6 +142,9 @@ var NULL_Y          = 1;
 var NULL_N          = 0;
 var INCHECK_UNKNOWN = MATE + 1;
 var TTSCORE_UNKNOWN = MATE + 2;
+var ASP_MAX         = 75;
+var ASP_DELTA       = 3;
+var ASP_MIN         = 10;
 var EMPTY           = 0;
 var UCI_FMT         = 0;
 var SAN_FMT         = 1;
@@ -158,7 +161,7 @@ var COLOR_MASK = 0x8;
 
 var VALUE_PAWN = 100;             // safe - tuning root
 
-const TTSIZE = 1 << 22;
+const TTSIZE = 1 << 24;
 const TTMASK = TTSIZE - 1;
 
 const PTTSIZE = 1 << 14;
@@ -1269,8 +1272,6 @@ lozChess.prototype.go = function() {
   var board = this.board;
   var spec  = this.uci.spec;
 
-  board.hashAge++;
-
   //{{{  sort out spec
   
   //this.uci.send('info hashfull',myround(1000*board.hashUsed/TTSIZE));
@@ -1324,11 +1325,11 @@ lozChess.prototype.go = function() {
 
   var alpha       = -INFINITY;
   var beta        = INFINITY;
+  var asp         = ASP_MAX;
   var ply         = 1;
   var maxPly      = spec.depth;
   var bestMoveStr = '';
   var score       = 0;
-  var lastScore   = 0;
 
   while (ply <= maxPly) {
 
@@ -1340,36 +1341,38 @@ lozChess.prototype.go = function() {
       break;
     }
 
-    if (score <= alpha) {
+    if (score <= alpha || score >= beta) {
+      //{{{  research
+      
+      if (score >= beta) {
+        ;
+      }
+      else {
+        if (totTime > 30000) {
+          movTime              = movTime / 2 | 0;
+          this.stats.moveTime += movTime;
+        }
+      }
+      
       alpha = -INFINITY;
-      beta = alpha + beta / 2 | 0;
-      //console.log('alpha');
+      beta  = INFINITY;
+      asp   = ASP_MAX * 10;
+      
       continue;
-    }
-
-    if (score >= beta) {
-      alpha = alpha + beta / 2 | 0;
-      beta = INFINITY;
-      //console.log('beta');
-      continue;
+      
+      //}}}
     }
 
     if (Math.abs(score) >= MINMATE && Math.abs(score) <= MATE) {
       break;
     }
 
-    if (ply > 3) {
+    alpha = score - asp;
+    beta  = score + asp;
 
-      var delta   = Math.abs(score - lastScore);
-      var window  = Math.max(delta*2,20);
-
-      alpha = score - window;
-      beta  = score + window;
-
-      //console.log('window',window);
-    }
-
-    lastScore = score;
+    asp -= ASP_DELTA;       //  shrink the window.
+    if (asp < ASP_MIN)
+      asp = ASP_MIN;
 
     ply += 1;
   }
@@ -1657,10 +1660,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 
   //{{{  prune?
   
-  score = standPat - depth * 200;
-  
-  if (doBeta && depth <= 2 && score >= beta) {
-    return score;
+  if (doBeta && depth <= 2 && (standPat - depth * 200) >= beta) {
+    return standPat;
   }
   
   //}}}
@@ -1695,8 +1696,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
       return;
   
     if (score >= beta) {
-      if (board.betaMate(score))
-        score = beta;
+      //if (board.betaMate(score))
+        //score = beta;
       return score;
     }
   
@@ -1885,15 +1886,15 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 }
 
 //}}}
-//{{{  .qsearch
+//{{{  .quiescence
 
 lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
   //{{{  housekeeping
   
-  this.stats.checkTime();
-  if (this.stats.timeOut)
-    return;
+  //this.stats.checkTime();
+  //if (this.stats.timeOut)
+    //return;
   
   if (node.ply > this.stats.selDepth)
     this.stats.selDepth = node.ply;
@@ -1942,14 +1943,14 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
   while (move = node.getNextMove()) {
 
-    var toPiece = ((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK;
-
-    if (!toPiece)
-      toPiece = PAWN;  // EP
-
-    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 100 + VALUE_VECTOR[toPiece] < alpha) {
+    //{{{  prune?
+    
+    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+    
       continue;
     }
+    
+    //}}}
 
     board.makeMove(node,move);
 
@@ -2109,7 +2110,6 @@ function lozBoard () {
   this.verbose      = false;
   this.mvFmt        = 0;
   this.hashUsed     = 0;
-  this.hashAge      = 0;
 
   this.b = new Uint16Array(144);    // pieces.
   this.z = new Uint16Array(144);    // indexes to w|bList.
@@ -2137,10 +2137,9 @@ function lozBoard () {
   this.ttLo      = new Int32Array(TTSIZE);
   this.ttHi      = new Int32Array(TTSIZE);
   this.ttType    = new Uint8Array(TTSIZE);
-  this.ttDepth   = new Int8Array(TTSIZE);         // allow -ve depths but currently not used for q.
-  this.ttMove    = new Uint32Array(TTSIZE);       // see constants for structure.
+  this.ttDepth   = new Int8Array(TTSIZE);   // allow -ve depths but currently not used for q.
+  this.ttMove    = new Uint32Array(TTSIZE); // see constants for structure.
   this.ttScore   = new Int16Array(TTSIZE);
-  this.ttAge     = new Uint8ClampedArray(TTSIZE);
 
   this.pttLo     = new Int32Array(PTTSIZE);
   this.pttHi     = new Int32Array(PTTSIZE);
@@ -5455,7 +5454,6 @@ lozBoard.prototype.evaluate = function (turn) {
     uci.send('info string','knights =     ',knightsS,knightsE);
     uci.send('info string','pawns =       ',pawnsS,pawnsE);
     uci.send('info string','tempo =       ',tempoS,tempoE);
-  
   }
   
   //}}}
@@ -5489,7 +5487,7 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
 
   var idx = this.loHash & TTMASK;
 
-  //if (this.ttType[idx] != TT_EMPTY && this.ttDepth[idx] > depth && this.ttAge[idx] >= this.hashAge) {
+  //if (this.ttType[idx] == TT_EXACT && this.loHash == this.ttLo[idx] && this.hiHash == this.ttHi[idx] && this.ttDepth[idx] > depth && this.ttScore[idx] > alpha && this.ttScore[idx] < beta) {
     //return;
   //}
 
@@ -5508,7 +5506,6 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
   this.ttDepth[idx] = depth;
   this.ttScore[idx] = score;
   this.ttMove[idx]  = move;
-  this.ttAge[idx]   = this.hashAge;
 }
 
 //}}}
@@ -5594,7 +5591,6 @@ lozBoard.prototype.ttInit = function () {
   this.pttFlags.fill(TT_EMPTY);
 
   this.hashUsed = 0;
-  this.hashAge  = 0;
 }
 
 //}}}
