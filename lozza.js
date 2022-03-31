@@ -11,10 +11,10 @@ var LICHESS     = 0;
 //{{{  history
 /*
 
+2.3 31/03/22 Use TT in qsearch but prioritise main search entries.
 2.3 30/03/22 Allow mate scores from NMP.
 2.3 30/03/22 Use fail soft for beta pruning.
 2.3 23/03/22 Fix TT bug which was saving alpha not bestScore.
-2.3 23/02/22 Don't use TT in PV node.
 
 */
 
@@ -1628,11 +1628,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   
   if (depth <= 0) {
   
-    score = board.ttGet(node, 0, alpha, beta);
-  
-    if (score != TTSCORE_UNKNOWN)
-      return score;
-  
     score = this.qSearch(node, -1, turn, alpha, beta, 0);
   
     return score;
@@ -1886,7 +1881,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 }
 
 //}}}
-//{{{  .quiescence
+//{{{  .qsearch
 
 lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
@@ -1912,6 +1907,11 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   var phase         = 0;
   var nextTurn      = ~turn & COLOR_MASK;
   var to            = 0;
+
+  score = board.ttGet(node, 0, alpha, beta);
+
+  if (score != TTSCORE_UNKNOWN)
+    return score;
 
   if (depth > -2)
     var inCheck = board.isKingAttacked(nextTurn);
@@ -1981,6 +1981,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
     if (score > alpha) {
       if (score >= beta) {
+        board.ttPut(TT_BETA, 0, score, move, node.ply, alpha, beta);
         return score;
       }
       alpha = score;
@@ -2000,6 +2001,7 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   
   //}}}
 
+  board.ttPut(TT_ALPHA, 0, alpha, 0, node.ply, alpha, beta);
   return alpha;
 }
 
@@ -5487,9 +5489,8 @@ lozBoard.prototype.ttPut = function (type,depth,score,move,ply,alpha,beta) {
 
   var idx = this.loHash & TTMASK;
 
-  //if (this.ttType[idx] == TT_EXACT && this.loHash == this.ttLo[idx] && this.hiHash == this.ttHi[idx] && this.ttDepth[idx] > depth && this.ttScore[idx] > alpha && this.ttScore[idx] < beta) {
-    //return;
-  //}
+  if (depth == 0 && this.ttType[idx] != TT_EMPTY && this.ttDepth[idx] > 0)
+    return;  // don't let qsearch tt entries overwrite search tt entries.
 
   if (this.ttType[idx] == TT_EMPTY)
     this.hashUsed++;
