@@ -11,6 +11,7 @@ var LICHESS     = 0;
 //{{{  history
 /*
 
+2.3 06/04/22 Fix qsearch pruning bug.
 2.3 31/03/22 Add eval to TT and lazy compute eval as needed. See board.getEval().
 2.3 31/03/22 Use TT in qsearch but prioritise main search entries.
 2.3 30/03/22 Allow mate scores from NMP.
@@ -1945,7 +1946,11 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
     //{{{  prune?
     
-    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK] < alpha) {
+    var delta = VALUE_VECTOR[PAWN];  // ep capture.
+    if (move & MOVE_TOOBJ_MASK)      // usual capture
+      delta = VALUE_VECTOR[((move & MOVE_TOOBJ_MASK) >>> MOVE_TOOBJ_BITS) & PIECE_MASK]
+    
+    if (!inCheck && phase <= EPHASE && !(move & MOVE_PROMOTE_MASK) && standPat + 200 + delta < alpha) {
     
       continue;
     }
