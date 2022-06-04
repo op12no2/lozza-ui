@@ -4,19 +4,14 @@
 // A Javascript chess engine inspired by Fabien Letouzey's Fruit 2.1.
 //
 
-var BUILD       = "2.3";
+var BUILD       = "2.4";
 var USEPAWNHASH = 1;
 var LICHESS     = 0;
 
 //{{{  history
 /*
 
-2.3 06/04/22 Fix qsearch pruning bug.
-2.3 31/03/22 Add eval to TT and lazy compute eval as needed. See board.getEval().
-2.3 31/03/22 Use TT in qsearch but prioritise main search entries.
-2.3 30/03/22 Allow mate scores from NMP.
-2.3 30/03/22 Use fail soft for beta pruning.
-2.3 23/03/22 Fix TT bug which was saving alpha not bestScore.
+2.4 31/05/22 Rejig ID.
 
 */
 
@@ -144,9 +139,6 @@ var NULL_Y          = 1;
 var NULL_N          = 0;
 var INCHECK_UNKNOWN = MATE + 1;
 var TTSCORE_UNKNOWN = MATE + 2;
-var ASP_MAX         = 75;
-var ASP_DELTA       = 3;
-var ASP_MIN         = 10;
 var EMPTY           = 0;
 var UCI_FMT         = 0;
 var SAN_FMT         = 1;
@@ -1325,58 +1317,48 @@ lozChess.prototype.go = function() {
   
   //}}}
 
-  var alpha       = -INFINITY;
-  var beta        = INFINITY;
-  var asp         = ASP_MAX;
+  var alpha       = 0;
+  var beta        = 0;
   var ply         = 1;
   var maxPly      = spec.depth;
   var bestMoveStr = '';
   var score       = 0;
+  var delta       = 0;
 
-  while (ply <= maxPly) {
+  for (ply=1; ply <= maxPly; ply++) {
 
     this.stats.ply = ply;
 
-    score = this.search(this.rootNode, ply, board.turn, alpha, beta);
+    alpha = -INFINITY;
+    beta  = INFINITY;
+    delta = 10;
 
-    if (this.stats.timeOut) {
+    if (ply >= 4) {
+      alpha = Math.max(-INFINITY, score - delta);
+      beta  = Math.min(INFINITY,  score + delta);
+    }
+
+    while (1) {
+
+      score = this.search(this.rootNode, ply, board.turn, alpha, beta);
+
+      if (this.stats.timeOut)
+        break;
+
+      if (score > alpha && score < beta)
+        break;
+
+      if (Math.abs(score) >= MINMATE && Math.abs(score) <= MATE)
+        break;
+
+      delta += delta/2 | 0;
+
+      alpha = Math.max(-INFINITY, score - delta);
+      beta  = Math.min(INFINITY,  score + delta);
+    }
+
+    if (this.stats.timeOut)
       break;
-    }
-
-    if (score <= alpha || score >= beta) {
-      //{{{  research
-      
-      if (score >= beta) {
-        ;
-      }
-      else {
-        if (totTime > 30000) {
-          movTime              = movTime / 2 | 0;
-          this.stats.moveTime += movTime;
-        }
-      }
-      
-      alpha = -INFINITY;
-      beta  = INFINITY;
-      asp   = ASP_MAX * 10;
-      
-      continue;
-      
-      //}}}
-    }
-
-    if (Math.abs(score) >= MINMATE && Math.abs(score) <= MATE) {
-      break;
-    }
-
-    alpha = score - asp;
-    beta  = score + asp;
-
-    asp -= ASP_DELTA;       //  shrink the window.
-    if (asp < ASP_MIN)
-      asp = ASP_MIN;
-
-    ply += 1;
   }
 
   this.stats.update();
