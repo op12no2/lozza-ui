@@ -11,6 +11,7 @@ var LICHESS     = 0;
 //{{{  history
 /*
 
+2.4 12/06/22 Decrease beta pruning threshold.
 2.4 31/05/22 Rejig ID.
 
 */
@@ -1639,7 +1640,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 
   //{{{  prune?
   
-  if (doBeta && depth <= 2 && ((standPat = board.getEval(standPat,node,turn)) - depth * 200) >= beta) {
+  if (doBeta && depth <= 2 && ((standPat = board.getEval(standPat,node,turn)) - depth * 120) >= beta) {
     return standPat;
   }
   
