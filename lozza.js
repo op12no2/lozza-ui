@@ -11,6 +11,8 @@ var LICHESS     = 0;
 //{{{  history
 /*
 
+2.5 17/08/22 Do full width search until alpha raised in a nodes.
+
 */
 
 //}}}
@@ -1809,7 +1811,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     
     //}}}
 
-    if (numLegalMoves == 1) {
+    if (!bestMove) {
       score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);
     }
     else {
@@ -2138,7 +2140,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     numLegalMoves++;
 
     if (pvNode) {
-      if (numLegalMoves == 1)
+      if (!bestMove)
         score = -this.alphabeta(node.childNode, depth+E-1, nextTurn, -beta, -alpha, NULL_Y, givesCheck);
       else {
         score = -this.alphabeta(node.childNode, depth+E-R-1, nextTurn, -alpha-1, -alpha, NULL_Y, givesCheck);
