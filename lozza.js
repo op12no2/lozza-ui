@@ -321,6 +321,7 @@ var  B64B =  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,
               0,0,0,0,0,0,0,0,0,0,0,0,
               0,0,0,0,0,0,0,0,0,0,0,0];
 
+var B64 = [B64W,B64B];
 
 var COORDS =   ['??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
                 '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??', '??',
@@ -871,16 +872,16 @@ const WEIGHTS_MAT_E = Array(6*64*64);
 for (var KKK=0; KKK<64; KKK++) {
   for (var SSS=0; SSS<64; SSS++) {
     WEIGHTS_MAT_M[W(PAWN,KKK,SSS)] = 100;
-    WEIGHTS_MAT_M[W(KNIGHT,KKK,SSS)] = Math.random()*100|0;
-    WEIGHTS_MAT_M[W(BISHOP,KKK,SSS)] = Math.random()*100|0;
-    WEIGHTS_MAT_M[W(ROOK,KKK,SSS)] = Math.random()*100|0;
-    WEIGHTS_MAT_M[W(QUEEN,KKK,SSS)] = Math.random()*100|0;
+    WEIGHTS_MAT_M[W(KNIGHT,KKK,SSS)] = 320;
+    WEIGHTS_MAT_M[W(BISHOP,KKK,SSS)] = 320;
+    WEIGHTS_MAT_M[W(ROOK,KKK,SSS)] = 500;
+    WEIGHTS_MAT_M[W(QUEEN,KKK,SSS)] = 900;
     WEIGHTS_MAT_M[W(KING,KKK,SSS)] = 10000;
-    WEIGHTS_MAT_E[W(PAWN,KKK,SSS)] = Math.random()*100|0;
-    WEIGHTS_MAT_E[W(KNIGHT,KKK,SSS)] = Math.random()*100|0;
-    WEIGHTS_MAT_E[W(BISHOP,KKK,SSS)] = Math.random()*100|0;
-    WEIGHTS_MAT_E[W(ROOK,KKK,SSS)] = Math.random()*100|0;
-    WEIGHTS_MAT_E[W(QUEEN,KKK,SSS)] = Math.random()*100|0;
+    WEIGHTS_MAT_E[W(PAWN,KKK,SSS)] = 100;
+    WEIGHTS_MAT_E[W(KNIGHT,KKK,SSS)] = 320;
+    WEIGHTS_MAT_E[W(BISHOP,KKK,SSS)] = 320;
+    WEIGHTS_MAT_E[W(ROOK,KKK,SSS)] = 500;
+    WEIGHTS_MAT_E[W(QUEEN,KKK,SSS)] = 900;
     WEIGHTS_MAT_E[W(KING,KKK,SSS)] = 10000;
   }
 }
@@ -3703,13 +3704,15 @@ lozBoard.prototype.evalLoop = function (turn) {
     var pList  = this.wList;
     var pCount = this.wCount;
     var ksq    = pList[0];
-    var ksq64  = B64W[ksq];
+    var B64    = B64W;
+    var ksq64  = B64[ksq];
   }
   else {
     var pList  = this.bList;
     var pCount = this.bCount;
     var ksq    = pList[0];
-    var ksq64  = B64B[ksq];
+    var B64    = B64B;
+    var ksq64  = B64[ksq];
   }
 
   if ((b[ksq] & PIECE_MASK) != KING)
@@ -3721,21 +3724,15 @@ lozBoard.prototype.evalLoop = function (turn) {
   var next   = 0;
   var count  = 0;
   var phase  = 0;
-  var sq     = 0;
-  var sq64   = 0;
 
   while (count < pCount) {
 
-    sq = pList[next++];
+    var sq = pList[next++];
     if (!sq)
       continue;
 
-    if (turn == WHITE)
-      sq64 = B64W[sq];
-    else
-      sq64 = B64B[sq];
-
-    var p  = b[sq] & PIECE_MASK;
+    var sq64 = B64[sq];
+    var p    = b[sq] & PIECE_MASK;
 
     phase += VPHASE[p];
 
