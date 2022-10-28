@@ -3646,14 +3646,14 @@ lozBoard.prototype.evaluate = function (turn) {
   
   // white
   
-  phase -= this.evalLoop(WHITE, this.wCount, this.wList)
+  phase -= this.evalLoop(WHITE)
   
   materialS += this.eval.matS;
   materialE += this.eval.matE;
   
   // black
   
-  phase -= this.evalLoop(BLACK, this.bCount, this.bList)
+  phase -= this.evalLoop(BLACK)
   
   materialS -= this.eval.matS;
   materialE -= this.eval.matE;
@@ -3739,8 +3739,8 @@ lozBoard.prototype.evalLoop = function (turn) {
 
     phase += VPHASE[p];
 
-    matS += WEIGHTS_MAT_M[p,ksq64,sq64];
-    matE += WEIGHTS_MAT_E[p,ksq64,sq64];
+    matS += WEIGHTS_MAT_M[W(p,ksq64,sq64)];
+    matE += WEIGHTS_MAT_E[W(p,ksq64,sq64)];
 
     count++;
   }
