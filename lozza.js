@@ -49,77 +49,6 @@ function myround(x) {
 
 //{{{  constants
 
-//{{{  feature weight indexes
-
-var iSPARE0               = 0;
-var iSPARE1               = 1;
-var iSPARE2               = 2;
-var iSPARE3               = 3;
-var iSPARE4               = 4;
-var iSPARE5               = 5;
-var iSPARE6               = 6;
-var iSPARE7               = 7;
-var iATT_N                = 8;
-var iATT_B                = 9;
-var iATT_R                = 10;
-var iATT_Q                = 11;
-var iSPARE12              = 12;
-var iPAWN_DOUBLED_S       = 13;
-var iPAWN_DOUBLED_E       = 14;
-var iPAWN_ISOLATED_S      = 15;
-var iPAWN_ISOLATED_E      = 16;
-var iPAWN_BACKWARD_S      = 17;
-var iPAWN_BACKWARD_E      = 18;
-var iPAWN_PASSED_OFFSET_S = 19;
-var iPAWN_PASSED_OFFSET_E = 20;
-var iPAWN_PASSED_MULT_S   = 21;
-var iPAWN_PASSED_MULT_E   = 22;
-var iTWOBISHOPS_S         = 23;
-var iROOK7TH_S            = 24;
-var iROOK7TH_E            = 25;
-var iROOKOPEN_S           = 26;
-var iROOKOPEN_E           = 27;
-var iQUEEN7TH_S           = 28;
-var iQUEEN7TH_E           = 29;
-var iTRAPPED_S            = 30;
-var iKING_PENALTY         = 31;
-var iPAWN_OFFSET_S        = 32;
-var iPAWN_OFFSET_E        = 33;
-var iPAWN_MULT_S          = 34;
-var iPAWN_MULT_E          = 35;
-var iPAWN_PASS_FREE       = 36;
-var iPAWN_PASS_UNSTOP     = 37;
-var iPAWN_PASS_KING1      = 38;
-var iPAWN_PASS_KING2      = 39;
-var iSPARE40              = 40;
-var iSPARE41              = 41;
-var iSPARE42              = 42;
-var iSPARE43              = 43;
-var iSPARE44              = 44;
-var iSPARE45              = 45;
-var iTWOBISHOPS_E         = 46;
-var iTEMPO_S              = 47;
-var iTEMPO_E              = 48;
-var iTRAPPED_E            = 49;
-var iTIGHT_NS             = 50;
-var iTIGHT_NE             = 51;
-var iTIGHT_BS             = 52;
-var iTIGHT_BE             = 53;
-var iTIGHT_RS             = 54;
-var iTIGHT_RE             = 55;
-var iTIGHT_QS             = 56;
-var iTIGHT_QE             = 57;
-var iTENSE_NS             = 58;
-var iTENSE_NE             = 59;
-var iTENSE_BS             = 60;
-var iTENSE_BE             = 61;
-var iTENSE_RS             = 62;
-var iTENSE_RE             = 63;
-var iTENSE_QS             = 64;
-var iTENSE_QE             = 65;
-
-//}}}
-
 var MAX_PLY         = 100;                // limited by lozza.board.ttDepth bits.
 var MAX_MOVES       = 250;
 var INFINITY        = 30000;              // limited by lozza.board.ttScore bits.
@@ -229,6 +158,9 @@ var B_BISHOP = BISHOP | BLACK;
 var B_ROOK   = ROOK   | BLACK;
 var B_QUEEN  = QUEEN  | BLACK;
 var B_KING   = KING   | BLACK;
+
+var WHITE_PIECES = [W_PAWN,W_KNIGHT,W_BISHOP,W_ROOK,W_QUEEN,W_KING];
+var BLACK_PIECES = [B_PAWN,B_KNIGHT,B_BISHOP,B_ROOK,B_QUEEN,B_KING];
 
 //
 // E == EMPTY, X = OFF BOARD, - == CANNOT HAPPEN
@@ -882,7 +814,7 @@ var randoms = [
 
 //}}}
 
-//{{{  tuned feature weights
+//{{{  tuned weights
 //
 // prefix = eth1
 // num files = 5
@@ -899,7 +831,7 @@ var randoms = [
 // last update = Fri Oct 28 2022 08:00:31 GMT+0100 (British Summer Time)
 //
 
-const WEIGHTS_MAT_S   = [0,100,325,325,500,900,10000];
+const WEIGHTS_MAT_M   = [0,100,325,325,500,900,10000];
 const WEIGHTS_MAT_E   = [0,100,325,325,500,900,10000];
 
 //}}}
@@ -1510,6 +1442,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   var standPat  = board.evaluate(turn);
   var doBeta    = !pvNode && !inCheck && !lonePawns && nullOK == NULL_Y && !board.betaMate(beta);
 
+  //console.log(depth,standPat,'                                       ');
+
   //{{{  prune?
   
   if (doBeta && depth <= 2 && (standPat - depth * 200) >= beta) {
@@ -1941,6 +1875,8 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
 //{{{  lozBoard
 
 function lozBoard () {
+
+  this.eval         = {};
 
   this.lozza        = null;
   this.verbose      = false;
@@ -3625,7 +3561,7 @@ lozBoard.prototype.evaluate = function (turn) {
   
   var uci         = this.lozza.uci;
   var b           = this.b;
-  var phase       = TPHASE;
+  
   var numPieces   = this.wCount + this.bCount;
   
   var wNumQueens  = this.wCounts[QUEEN];
@@ -3640,14 +3576,8 @@ lozBoard.prototype.evaluate = function (turn) {
   var bNumKnights = this.bCounts[KNIGHT];
   var bNumPawns   = this.bCounts[PAWN];
   
-  var wKingSq     = this.wList[0];
-  var bKingSq     = this.bList[0];
-  
   var materialS   = 0;
   var materialE   = 0;
-  
-  var matS = 0;
-  var matE = 0;
   
   //}}}
   //{{{  draw?
@@ -3661,213 +3591,39 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  iterate
   
+  this.eval.phase = TPHASE;
+  
   //{{{  white
   
-  matS = 0;
-  matE = 0;
+  this.eval.pieces = WHITE_PIECES;
   
-  var myPawn       = W_PAWN;
-  var myKnight     = W_KNIGHT;
-  var myBishop     = W_BISHOP;
-  var myRook       = W_ROOK;
-  var myQueen      = W_QUEEN;
-  var myKing       = W_KING;
+  this.eval.pList  = this.wList;
+  this.eval.pCount = this.wCount;
   
-  var pList        = this.wList;
-  var pCount       = this.wCount;
+  this.evalLoop()
   
-  //{{{  generic loop
-  
-  var mob   = 0;
-  var to    = 0;
-  var next  = 0;
-  var count = 0;
-  
-  while (count < pCount) {
-  
-    var fr = pList[next++];
-    if (!fr)
-      continue;
-  
-    var frObj = b[fr];
-  
-    if (frObj == myPawn) {
-      //{{{  P
-      
-      phase -= VPHASE[PAWN];
-      
-      matS += WEIGHTS_MAT_S[PAWN];
-      matE += WEIGHTS_MAT_E[PAWN];
-      
-      //}}}
-    }
-  
-    else if (frObj == myKnight) {
-      //{{{  N
-      
-      phase -= VPHASE[KNIGHT];
-      
-      matS += WEIGHTS_MAT_S[KNIGHT];
-      matE += WEIGHTS_MAT_E[KNIGHT];
-      
-      //}}}
-    }
-  
-    else if (frObj == myBishop) {
-      //{{{  B
-      
-      phase -= VPHASE[BISHOP];
-      
-      matS += WEIGHTS_MAT_S[BISHOP];
-      matE += WEIGHTS_MAT_E[BISHOP];
-      
-      //}}}
-    }
-  
-    else if (frObj == myRook) {
-      //{{{  R
-      
-      phase -= VPHASE[ROOK];
-      
-      matS += WEIGHTS_MAT_S[ROOK];
-      matE += WEIGHTS_MAT_E[ROOK];
-      
-      //}}}
-    }
-  
-    else if (frObj == myQueen) {
-      //{{{  Q
-      
-      phase -= VPHASE[QUEEN];
-      
-      matS += WEIGHTS_MAT_S[QUEEN];
-      matE += WEIGHTS_MAT_E[QUEEN];
-      
-      //}}}
-    }
-  
-    else if (frObj == myKing) {
-      //{{{  K
-      
-      
-      //}}}
-    }
-  
-    count++;
-  }
-  
-  //}}}
-  
-  materialS += matS;
-  materialE += matE;
+  materialS += this.eval.matS;
+  materialE += this.eval.matE;
   
   //}}}
   //{{{  black
   
-  matS = 0;
-  matE = 0;
+  this.eval.pieces = BLACK_PIECES;
   
-  var myPawn       = B_PAWN;
-  var myKnight     = B_KNIGHT;
-  var myBishop     = B_BISHOP;
-  var myRook       = B_ROOK;
-  var myQueen      = B_QUEEN;
-  var myKing       = B_KING;
+  this.eval.pList  = this.bList;
+  this.eval.pCount = this.bCount;
   
-  var pList        = this.bList;
-  var pCount       = this.bCount;
+  this.evalLoop()
   
-  //{{{  generic loop
-  
-  var mob   = 0;
-  var to    = 0;
-  var next  = 0;
-  var count = 0;
-  
-  while (count < pCount) {
-  
-    var fr = pList[next++];
-    if (!fr)
-      continue;
-  
-    var frObj = b[fr];
-  
-    if (frObj == myPawn) {
-      //{{{  P
-      
-      phase -= VPHASE[PAWN];
-      
-      matS += WEIGHTS_MAT_S[PAWN];
-      matE += WEIGHTS_MAT_E[PAWN];
-      
-      //}}}
-    }
-  
-    else if (frObj == myKnight) {
-      //{{{  N
-      
-      phase -= VPHASE[KNIGHT];
-      
-      matS += WEIGHTS_MAT_S[KNIGHT];
-      matE += WEIGHTS_MAT_E[KNIGHT];
-      
-      //}}}
-    }
-  
-    else if (frObj == myBishop) {
-      //{{{  B
-      
-      phase -= VPHASE[BISHOP];
-      
-      matS += WEIGHTS_MAT_S[BISHOP];
-      matE += WEIGHTS_MAT_E[BISHOP];
-      
-      //}}}
-    }
-  
-    else if (frObj == myRook) {
-      //{{{  R
-      
-      phase -= VPHASE[ROOK];
-      
-      matS += WEIGHTS_MAT_S[ROOK];
-      matE += WEIGHTS_MAT_E[ROOK];
-      
-      //}}}
-    }
-  
-    else if (frObj == myQueen) {
-      //{{{  Q
-      
-      phase -= VPHASE[QUEEN];
-      
-      matS += WEIGHTS_MAT_S[QUEEN];
-      matE += WEIGHTS_MAT_E[QUEEN];
-      
-      //}}}
-    }
-  
-    else if (frObj == myKing) {
-      //{{{  K
-      
-      
-      //}}}
-    }
-  
-    count++;
-  }
-  
-  //}}}
-  
-  materialS -= matS;
-  materialE -= matE;
+  materialS -= this.eval.matS;
+  materialE -= this.eval.matE;
   
   //}}}
   
   //}}}
   //{{{  combine
   
-  phase = this.cleanPhase(phase);
+  phase = this.cleanPhase(this.phase);
   
   var evalS = materialS;
   var evalE = materialE;
@@ -3881,7 +3637,7 @@ lozBoard.prototype.evaluate = function (turn) {
   
   if (this.verbose) {
     uci.send('info string','phased eval =',        e);
-    uci.send('info string','phase =',              phase);
+    uci.send('info string','phase =',              this.phase);
     uci.send('info string','evaluation =',         evalS,      evalE);
     uci.send('info string','material =',           materialS,  materialE);
     uci.send('info string','num white (p to q) =', wNumPawns,wNumKnights,wNumBishops,wNumRooks,wNumQueens);
@@ -3890,7 +3646,106 @@ lozBoard.prototype.evaluate = function (turn) {
   
   //}}}
 
-  return (turn == WHITE) ? e : -e
+  if (turn == WHITE)
+    return e;
+  else
+    return -e;
+}
+
+//}}}
+//{{{  .evalLoop
+
+lozBoard.prototype.evalLoop = function (turn) {
+
+  var b = this.b;
+
+  var matS = 0;
+  var matE = 0;
+
+  var next  = 0;
+  var count = 0;
+  var phase = 0;
+
+  var pCount = this.eval.pCount;
+  var pList  = this.eval.pList;
+
+  while (count < pCount) {
+
+    var fr = pList[next++];
+    if (!fr)
+      continue;
+
+    var p = b[fr];
+
+    if (p == PAWN | turn) {
+      //{{{  P
+      
+      phase -= VPHASE[PAWN];
+      
+      matS += WEIGHTS_MAT_M[PAWN];
+      matE += WEIGHTS_MAT_E[PAWN];
+      
+      //}}}
+    }
+
+    else if (p == KNIGHT | turn) {
+      //{{{  N
+      
+      phase -= VPHASE[KNIGHT];
+      
+      matS += WEIGHTS_MAT_M[KNIGHT];
+      matE += WEIGHTS_MAT_E[KNIGHT];
+      
+      //}}}
+    }
+
+    else if (p == BISHOP | turn) {
+      //{{{  B
+      
+      phase -= VPHASE[BISHOP];
+      
+      matS += WEIGHTS_MAT_M[BISHOP];
+      matE += WEIGHTS_MAT_E[BISHOP];
+      
+      //}}}
+    }
+
+    else if (p == ROOK | turn) {
+      //{{{  R
+      
+      phase -= VPHASE[ROOK];
+      
+      matS += WEIGHTS_MAT_M[ROOK];
+      matE += WEIGHTS_MAT_E[ROOK];
+      
+      //}}}
+    }
+
+    else if (p == QUEEN | turn) {
+      //{{{  Q
+      
+      phase -= VPHASE[QUEEN];
+      
+      matS += WEIGHTS_MAT_M[QUEEN];
+      matE += WEIGHTS_MAT_E[QUEEN];
+      
+      //}}}
+    }
+
+    else if (p == KING | turn) {
+      //{{{  K
+      
+      
+      //}}}
+    }
+
+    count++;
+  }
+
+  this.eval.phase -= phase;
+
+  this.eval.matS = matS;
+  this.eval.matE = matE;
 }
 
 //}}}
@@ -4410,12 +4265,17 @@ lozNode.prototype.slideBase = function (move) {
 
     if (frCol == WHITE) {
       var his = this.board.wHistory[frPiece][to];
+      var pst = Math.random(100) - 50 | 0;
     }
     else {
       var his = this.board.bHistory[frPiece][to];
+      var pst = Math.random(100) - 50 | 0;
     }
 
-    return BASE_HISSLIDE + his;
+    if (!his)
+      return BASE_PSTSLIDE + pst;
+    else
+      return BASE_HISSLIDE + his;
 }
 
 //}}}
@@ -4871,6 +4731,9 @@ onmessage = function(e) {
     if (uci.command == 'b')
       uci.command = 'board';
     
+    if (uci.command == 'e')
+      uci.command = 'eval';
+    
     if (uci.command == 'q')
       uci.command = 'quit';
     
@@ -5080,7 +4943,7 @@ onmessage = function(e) {
     case 'board':
       //{{{  board
       
-      uci.send('board',lozza.board.fen());
+      uci.send('board',lozza.board.fen(lozza.board.turn));
       
       break;
       
@@ -5105,7 +4968,6 @@ onmessage = function(e) {
 var lozza         = new lozChess()
 lozza.board.lozza = lozza;
 
-
 //{{{  node interface
 
 if (lozzaHost == HOST_NODEJS) {
@@ -5114,7 +4976,7 @@ if (lozzaHost == HOST_NODEJS) {
   
   function unitTest(p) {
     if (p == '10') {
-      onmessage({data: 'ucinewgame\nposition startpos\ngo depth 10\nquit'});
+      onmessage({data: 'ping\nb\nucinewgame\nposition startpos\nb\ngo depth 10\nb\nquit'});
     }
   }
   
