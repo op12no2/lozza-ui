@@ -3591,39 +3591,32 @@ lozBoard.prototype.evaluate = function (turn) {
   //}}}
   //{{{  iterate
   
-  this.eval.phase = TPHASE;
+  var phase = TPHASE;
   
-  //{{{  white
-  
-  this.eval.pieces = WHITE_PIECES;
+  // white
   
   this.eval.pList  = this.wList;
   this.eval.pCount = this.wCount;
   
-  this.evalLoop()
+  phase -= this.evalLoop(WHITE)
   
   materialS += this.eval.matS;
   materialE += this.eval.matE;
   
-  //}}}
-  //{{{  black
-  
-  this.eval.pieces = BLACK_PIECES;
+  // black
   
   this.eval.pList  = this.bList;
   this.eval.pCount = this.bCount;
   
-  this.evalLoop()
+  phase -= this.evalLoop(BLACK)
   
   materialS -= this.eval.matS;
   materialE -= this.eval.matE;
   
   //}}}
-  
-  //}}}
   //{{{  combine
   
-  phase = this.cleanPhase(this.phase);
+  phase = this.cleanPhase(phase);
   
   var evalS = materialS;
   var evalE = materialE;
@@ -3637,7 +3630,7 @@ lozBoard.prototype.evaluate = function (turn) {
   
   if (this.verbose) {
     uci.send('info string','phased eval =',        e);
-    uci.send('info string','phase =',              this.phase);
+    uci.send('info string','phase =',              phase);
     uci.send('info string','evaluation =',         evalS,      evalE);
     uci.send('info string','material =',           materialS,  materialE);
     uci.send('info string','num white (p to q) =', wNumPawns,wNumKnights,wNumBishops,wNumRooks,wNumQueens);
@@ -3675,77 +3668,63 @@ lozBoard.prototype.evalLoop = function (turn) {
     if (!fr)
       continue;
 
-    var p = b[fr];
+    var p = b[fr] & PIECE_MASK;
 
-    if (p == PAWN | turn) {
-      //{{{  P
-      
-      phase -= VPHASE[PAWN];
-      
-      matS += WEIGHTS_MAT_M[PAWN];
-      matE += WEIGHTS_MAT_E[PAWN];
-      
-      //}}}
-    }
+    phase += VPHASE[p];
 
-    else if (p == KNIGHT | turn) {
-      //{{{  N
-      
-      phase -= VPHASE[KNIGHT];
-      
-      matS += WEIGHTS_MAT_M[KNIGHT];
-      matE += WEIGHTS_MAT_E[KNIGHT];
-      
-      //}}}
-    }
+    matS += WEIGHTS_MAT_M[p];
+    matE += WEIGHTS_MAT_E[p];
 
-    else if (p == BISHOP | turn) {
-      //{{{  B
-      
-      phase -= VPHASE[BISHOP];
-      
-      matS += WEIGHTS_MAT_M[BISHOP];
-      matE += WEIGHTS_MAT_E[BISHOP];
-      
-      //}}}
-    }
+    switch (p) {
 
-    else if (p == ROOK | turn) {
-      //{{{  R
-      
-      phase -= VPHASE[ROOK];
-      
-      matS += WEIGHTS_MAT_M[ROOK];
-      matE += WEIGHTS_MAT_E[ROOK];
-      
-      //}}}
-    }
+      case PAWN:
+        //{{{  P
+        
+        
+        //}}}
+        break;
 
-    else if (p == QUEEN | turn) {
-      //{{{  Q
-      
-      phase -= VPHASE[QUEEN];
-      
-      matS += WEIGHTS_MAT_M[QUEEN];
-      matE += WEIGHTS_MAT_E[QUEEN];
-      
-      //}}}
-    }
+      case KNIGHT:
+        //{{{  N
+        
+        
+        //}}}
+        break;
 
-    else if (p == KING | turn) {
-      //{{{  K
-      
-      
-      //}}}
+      case BISHOP:
+        //{{{  B
+        
+        
+        //}}}
+        break;
+
+      case ROOK:
+        //{{{  R
+        
+        //}}}
+        break;
+
+      case QUEEN:
+        //{{{  Q
+        
+        //}}}
+        break;
+
+      case KING:
+        //{{{  K
+        
+        
+        //}}}
+        break;
     }
 
     count++;
   }
 
-  this.eval.phase -= phase;
-
   this.eval.matS = matS;
   this.eval.matE = matE;
+
+  return phase;
 }
 
 //}}}
@@ -4976,7 +4955,7 @@ if (lozzaHost == HOST_NODEJS) {
   
   function unitTest(p) {
     if (p == '10') {
-      onmessage({data: 'ping\nb\nucinewgame\nposition startpos\nb\ngo depth 10\nb\nquit'});
+      onmessage({data: 'ping\nb\nucinewgame\nposition startpos\nb\ngo depth 10\nb\ne\nquit'});
     }
   }
   
