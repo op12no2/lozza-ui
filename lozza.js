@@ -1677,7 +1677,7 @@ lozChess.prototype.go = function() {
     beta  = INFINITY;
     delta = 10;
 
-    if (ply >= 3) {
+    if (ply >= 4) {
       alpha = Math.max(-INFINITY, score - delta);
       beta  = Math.min(INFINITY,  score + delta);
     }
