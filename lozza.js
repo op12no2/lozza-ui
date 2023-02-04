@@ -10,15 +10,18 @@ var RELEASE = 1;
 //{{{  history
 /*
 
+2.5 03/02/23 Return/store bestScore not oAlpha on fail low in search.
+2.5 03/02/23 Increase/decrease alpha/beta on fail high/low duing ID.
+2.5 03/02/23 Update best move on fail high.
 2.5 01/02/23 Round the pawn and attack values before the phase calculation. Retune.
 2.5 01/02/23 Don't use end game tempo. Retune.
 2.5 14/01/23 Retune using +- mode.
 2.5 29/12/22 Add eval to TT.
 2.5 28/12/22 Add doubled rooks to eval.
-2.5 23/11/22 Simplify mobility weights for small dataset.
+2.5 23/11/22 Simplify mobility weights for small tuning dataset.
 2.5 21/11/22 Add basic pawn chain feature to eval.
 2.5 21/11/22 Retune using Zurichess's quiet-labeled.epd.
-2.5 22/11/22 Make eval weights more visible.
+2.5 22/11/22 Make eval weights more visible (and in testing/tuner.js).
 
 */
 
@@ -1709,6 +1712,7 @@ lozChess.prototype.go = function() {
   var bestMoveStr = '';
   var score       = 0;
   var delta       = 0;
+  var depth       = 0;
 
   for (ply=1; ply <= maxPly; ply++) {
 
@@ -1723,9 +1727,11 @@ lozChess.prototype.go = function() {
       beta  = Math.min(INFINITY,  score + delta);
     }
 
+    depth = ply;
+
     while (1) {
 
-      score = this.search(this.rootNode, ply, board.turn, alpha, beta);
+      score = this.search(this.rootNode, depth, board.turn, alpha, beta);
 
       if (this.stats.timeOut)
         break;
@@ -1736,10 +1742,19 @@ lozChess.prototype.go = function() {
       if (Math.abs(score) >= MINMATE && Math.abs(score) <= MATE)
         break;
 
-      delta += delta/2 | 0;
+      //console.log(depth,alpha,beta,delta,score);
 
-      alpha = Math.max(-INFINITY, score - delta);
-      beta  = Math.min(INFINITY,  score + delta);
+      delta += delta / 2 | 0;
+
+      if (score <= alpha) {
+        alpha = Math.max(-INFINITY, score - delta);
+        beta  = Math.min(INFINITY, ((alpha + beta) / 2) | 0);
+      }
+      else if (score >= beta) {
+        alpha = Math.max(-INFINITY, ((alpha + beta) / 2) | 0);
+        beta  = Math.min(INFINITY,  score + delta);
+        //depth = Math.max(1,depth-1);
+      }
     }
 
     if (this.stats.timeOut)
@@ -1874,24 +1889,23 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     }
 
     if (score > bestScore) {
-      if (score > alpha) {
-        if (score >= beta) {
-          node.addKiller(score, move);
-          board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta, INFINITY);
-          board.addHistory(depth*depth*depth, move);
-          return score;
-        }
-        alpha = score;
-        board.addHistory(depth*depth, move);
+
+      bestScore = score;
+      bestMove  = move;
+
+      if (bestScore > alpha) {
+
+        alpha = bestScore;
+
         //{{{  update best move & send score to UI
         
-        this.stats.bestMove = move;
+        this.stats.bestMove = bestMove;
         
-        var absScore = Math.abs(score);
+        var absScore = Math.abs(bestScore);
         var units    = 'cp';
-        var uciScore = score;
-        var mv       = board.formatMove(move,board.mvFmt);
-        var pvStr    = board.getPVStr(node,move,depth);
+        var uciScore = bestScore;
+        var mv       = board.formatMove(bestMove,board.mvFmt);
+        var pvStr    = board.getPVStr(node,bestMove,depth);
         
         if (absScore >= MINMATE && absScore <= MATE) {
           if (lozzaHost != HOST_NODEJS)
@@ -1909,14 +1923,22 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
           this.uci.send('info hashfull',myround(1000*board.hashUsed/TTSIZE));
         
         //}}}
+
+        if (bestScore >= beta) {
+          node.addKiller(bestScore, bestMove);
+          board.ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
+          board.addHistory(depth*depth*depth, bestMove);
+          return bestScore;
+        }
+
+        else
+          board.addHistory(depth*depth, bestMove);
       }
-      bestScore = score;
-      bestMove  = move;
     }
+
     else
       board.addHistory(-depth, move);
   }
-
 
   if (numLegalMoves == 1)
     this.stats.timeOut = 1;  // only one legal move so don't waste any more time.
@@ -1926,8 +1948,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     return bestScore;
   }
   else {
-    board.ttPut(TT_ALPHA, depth, oAlpha,    bestMove, node.ply, alpha, beta, INFINITY);
-    return oAlpha;
+    board.ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, INFINITY);
+    return bestScore;
   }
 }
 
@@ -1951,6 +1973,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     this.stats.selDepth = node.ply;
   
   //}}}
+
+  this.stats.nodes++;
 
   var board    = this.board;
   var nextTurn = ~turn & COLOR_MASK;
@@ -2072,8 +2096,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   R = 0;
   
   //}}}
-
-  this.stats.nodes++;
 
   var bestScore      = -INFINITY;
   var move           = 0;
@@ -2205,19 +2227,26 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
       return;
 
     if (score > bestScore) {
-      if (score > alpha) {
-        if (score >= beta) {
-          node.addKiller(score, move);
-          board.ttPut(TT_BETA, depth, score, move, node.ply, alpha, beta, standPat);
-          board.addHistory(depth*depth*depth, move);
-          return score;
-        }
-        board.addHistory(depth*depth, move);
-        alpha     = score;
-      }
+
       bestScore = score;
       bestMove  = move;
+
+      if (bestScore > alpha) {
+
+        alpha = bestScore;
+
+        if (bestScore >= beta) {
+          node.addKiller(bestScore, bestMove);
+          board.ttPut(TT_BETA, depth, bestScore, bestMove, node.ply, alpha, beta, standPat);
+          board.addHistory(depth*depth*depth, bestMove);
+          return bestScore;
+        }
+
+        else
+          board.addHistory(depth*depth, bestMove);
+      }
     }
+
     else
       board.addHistory(-depth, move);
   }
@@ -2227,12 +2256,12 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   if (numLegalMoves == 0) {
   
     if (inCheck) {
-      board.ttPut(TT_EXACT, depth, -MATE + node.ply, 0, node.ply, alpha, beta, standPat);
+      //board.ttPut(TT_EXACT, depth, -MATE + node.ply, 0, node.ply, alpha, beta, standPat);
       return -MATE + node.ply;
     }
   
     else {
-      board.ttPut(TT_EXACT, depth, CONTEMPT, 0, node.ply, alpha, beta, standPat);
+      //board.ttPut(TT_EXACT, depth, CONTEMPT, 0, node.ply, alpha, beta, standPat);
       return CONTEMPT;
     }
   }
@@ -2244,13 +2273,13 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     return bestScore;
   }
   else {
-    board.ttPut(TT_ALPHA, depth, oAlpha,    bestMove, node.ply, alpha, beta, standPat);
-    return oAlpha;
+    board.ttPut(TT_ALPHA, depth, bestScore, bestMove, node.ply, alpha, beta, standPat);
+    return bestScore;
   }
 }
 
 //}}}
-//{{{  .quiescence
+//{{{  .qsearch
 
 lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
@@ -2268,6 +2297,8 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   }
   
   //}}}
+
+  this.stats.nodes++;
 
   var board         = this.board;
   var numLegalMoves = 0;
@@ -2291,8 +2322,6 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
       alpha = standPat;
     phase = board.cleanPhase(board.phase);
   }
-
-  this.stats.nodes++;
 
   node.cache();
 
