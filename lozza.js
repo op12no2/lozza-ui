@@ -10,6 +10,7 @@ var RELEASE = 1;
 //{{{  history
 /*
 
+2.5 05/02/23 Clear best move on fail low and don't allow timeout until there is a best move.
 2.5 03/02/23 Return/store bestScore not oAlpha on fail low in search.
 2.5 03/02/23 Increase/decrease alpha/beta on fail high/low duing ID.
 2.5 03/02/23 Update best move on fail high.
@@ -1749,6 +1750,7 @@ lozChess.prototype.go = function() {
       if (score <= alpha) {
         alpha = Math.max(-INFINITY, score - delta);
         beta  = Math.min(INFINITY, ((alpha + beta) / 2) | 0);
+        this.stats.bestMove = 0;
       }
       else if (score >= beta) {
         alpha = Math.max(-INFINITY, ((alpha + beta) / 2) | 0);
@@ -6798,10 +6800,10 @@ lozStats.prototype.lazyUpdate = function () {
 
 lozStats.prototype.checkTime = function () {
 
-  if (this.moveTime > 0 && ((Date.now() - this.startTime) > this.moveTime))
+  if (this.bestMove && this.moveTime > 0 && ((Date.now() - this.startTime) > this.moveTime))
     this.timeOut = 1;
 
-  if (this.maxNodes > 0 && this.nodes >= this.maxNodes)
+  if (this.bestMove && this.maxNodes > 0 && this.nodes >= this.maxNodes)
     this.timeOut = 1;
 }
 
