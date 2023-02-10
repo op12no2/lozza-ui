@@ -11,9 +11,10 @@ var SILENT  = 0;
 //{{{  history
 /*
 
+2.5 10/02/23 Test for draws in QS. Bench 4549628.
 2.5 10/02/23 Simplify UCI reporting.
-2.5 09/02/23 Process command line args if invoked with Node.
-2.5 09/02/23 Add bench command using Ethereal FENs. Depth 9 nodes 4625388 ~9s.
+2.5 09/02/23 Process command line args when invoked with Node.
+2.5 09/02/23 Add a bench command using Ethereal FENs at depth 9. Bench 4625388.
 2.5 09/02/23 Use TT in qsearch, but do not overwrite existing entries with depth > 0.
 2.5 05/02/23 Clear best move on fail low and don't allow timeout until there is a best move.
 2.5 03/02/23 Return/store bestScore not oAlpha on fail low in search.
@@ -1828,6 +1829,8 @@ lozChess.prototype.report = function(units,value,depth) {
 
 lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
 
+  this.stats.nodes++;
+
   //{{{  housekeeping
   
   if (!node.childNode) {
@@ -1836,8 +1839,6 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
   }
   
   //}}}
-
-  this.stats.nodes++;
 
   var board          = this.board;
   var nextTurn       = ~turn & COLOR_MASK;
@@ -1984,6 +1985,8 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
 
 lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK, inCheck) {
 
+  this.stats.nodes++;
+
   //{{{  housekeeping
   
   if (!node.childNode) {
@@ -1999,8 +2002,6 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     this.stats.selDepth = node.ply;
   
   //}}}
-
-  this.stats.nodes++;
 
   var board    = this.board;
   var nextTurn = ~turn & COLOR_MASK;
@@ -2028,14 +2029,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   //}}}
   //{{{  check for draws
   
-  if (board.repHi - board.repLo > 100)
+  if (board.isDraw())
     return 0;
-  
-  for (var i=board.repHi-5; i >= board.repLo; i -= 2) {
-  
-    if (board.repLoHash[i] == board.loHash && board.repHiHash[i] == board.hiHash)
-      return 0;
-  }
   
   //}}}
   //{{{  horizon
@@ -2304,6 +2299,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
 
 lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
+  this.stats.nodes++;
+
   //{{{  housekeeping
   
   if (node.ply > this.stats.selDepth)
@@ -2315,8 +2312,6 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   
   //}}}
 
-  this.stats.nodes++;
-
   var board         = this.board;
   var numLegalMoves = 0;
   var move          = 0;
@@ -2324,6 +2319,9 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
   var phase         = 0;
   var nextTurn      = ~turn & COLOR_MASK;
   var to            = 0;
+
+  if (board.isDraw())
+    return 0;
 
   var score = board.ttGet(node, 0, alpha, beta);  // sets/clears node.hashMove and node.hashEval.
 
@@ -6353,6 +6351,37 @@ lozBoard.prototype.cleanPhase = function (p) {
     return TPHASE;
 
   return p;
+}
+
+//}}}
+//{{{  .isDraw
+
+lozBoard.prototype.isDraw = function () {
+
+  if (this.repHi - this.repLo > 100)
+    return true;
+
+  for (var i=this.repHi-5; i >= this.repLo; i -= 2) {
+
+    if (this.repLoHash[i] == this.loHash && this.repHiHash[i] == this.hiHash)
+      return true;
+  }
+
+  var numPieces = this.wCount + this.bCount;
+
+  if (numPieces == 2)
+    return true;
+
+  var wNumBishops = this.wCounts[BISHOP];
+  var wNumKnights = this.wCounts[KNIGHT];
+
+  var bNumBishops = this.bCounts[BISHOP];
+  var bNumKnights = this.bCounts[KNIGHT];
+
+  if (numPieces == 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))  // K v K+N|B.
+    return true;
+
+  return false;
 }
 
 //}}}
