@@ -47,16 +47,16 @@ function lozUpdateBestMove () {
 //}}}
 //{{{  lozUpdatePV
 
-function lozUpdatePV () {
+//function lozUpdatePV () {
 
   //if (lozData.units == 'cp')
     //$(lozData.idInfo).prepend('depth ' + lozData.depth + ' (' + lozData.score + ') ' + lozData.pv + '<br>');
-  if (lozData.score > 0 && lozData.units != 'cp')
-    $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (<b>mate in ' + lozData.score + '</b>) ' + lozData.pv + '<br>');
-  else if (lozData.units != 'cp')
-    $(lozData.idInfo).prepend('depth ' + lozData.depth + ' (<b>checkmate</b>) ' + lozData.pv + '<br>');
+  //if (lozData.score > 0 && lozData.units != 'cp')
+    //$(lozData.idInfo).prepend('depth ' + lozData.depth + ' (<b>mate in ' + lozData.score + '</b>) ' + lozData.pv + '<br>');
+  //else if (lozData.units != 'cp')
+    //$(lozData.idInfo).prepend('depth ' + lozData.depth + ' (<b>checkmate</b>) ' + lozData.pv + '<br>');
 
-}
+//}
 
 //}}}
 //{{{  onDrop
@@ -305,7 +305,7 @@ $(function() {
   });
 
   //$(lozData.idInfo).prepend('Version ' + BUILD + ' ' + PLAYBUILD + '<br>');
-  //engine.postMessage('uci')
+  engine.postMessage('uci')
   engine.postMessage('ucinewgame')
   engine.postMessage('debug off')
 

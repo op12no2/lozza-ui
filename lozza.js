@@ -11,8 +11,9 @@ var SILENT  = 0;
 //{{{  history
 /*
 
+2.5 10/02/23 Simplify UCI reporting.
 2.5 09/02/23 Process command line args if invoked with Node.
-2.5 09/02/23 Add bench command using Ethereal FENs. Depth 9 nodes 4625388.
+2.5 09/02/23 Add bench command using Ethereal FENs. Depth 9 nodes 4625388 ~9s.
 2.5 09/02/23 Use TT in qsearch, but do not overwrite existing entries with depth > 0.
 2.5 05/02/23 Clear best move on fail low and don't allow timeout until there is a best move.
 2.5 03/02/23 Return/store bestScore not oAlpha on fail low in search.
@@ -39,16 +40,13 @@ var HOST_CONSOLE = 2;
 var HOSTS        = ['Web','Node','Console'];
 
 var lozzaHost = HOST_WEB;
-var UILAG     = 500;
 
 if ((typeof process) != 'undefined') {
   lozzaHost = HOST_NODEJS;
-  UILAG     = 10000;
 }
 
 else if ((typeof WorkerGlobalScope) == 'undefined') {
   lozzaHost = HOST_CONSOLE;
-  UILAG     = 10000;
 }
 
 //}}}
@@ -1659,15 +1657,10 @@ lozChess.prototype.position = function () {
 
 lozChess.prototype.go = function() {
 
-  //this.stats.init();
-  //this.stats.update();
-
   var board = this.board;
   var spec  = this.uci.spec;
 
   //{{{  sort out spec
-  
-  //this.uci.send('info hashfull',myround(1000*board.hashUsed/TTSIZE));
   
   var totTime = 0;
   var movTime = 0;
@@ -1698,13 +1691,7 @@ lozChess.prototype.go = function() {
       incTime = spec.bInc;
     }
   
-    //totTime = myround(totTime * (movesToGo - 1) / movesToGo);
     movTime = myround(totTime / movesToGo) + incTime;
-  
-    //if (this.uci.numMoves <= 3) {
-      //movTime *= 2;
-    //}
-  
     movTime = movTime * 0.95;
   
     if (movTime > 0)
@@ -1724,6 +1711,8 @@ lozChess.prototype.go = function() {
   var score       = 0;
   var delta       = 0;
   var depth       = 0;
+  var lastScore   = 0;
+  var lastDepth   = 0;
 
   for (ply=1; ply <= maxPly; ply++) {
 
@@ -1747,41 +1736,91 @@ lozChess.prototype.go = function() {
       if (this.stats.timeOut)
         break;
 
-      if (score > alpha && score < beta)
-        break;
+      lastScore = score;
+      lastDepth = depth;
 
-      if (Math.abs(score) >= MINMATE && Math.abs(score) <= MATE)
+      //{{{  better?
+      
+      if (score > alpha && score < beta) {
+      
+        this.report('cp',score,depth);
+      
         break;
-
-      //console.log(depth,alpha,beta,delta,score);
+      }
+      
+      //}}}
+      //{{{  mate?
+      
+      if (Math.abs(score) >= MINMATE && Math.abs(score) <= MATE) {
+      
+        var mateScore = (MATE - Math.abs(score)) / 2 | 0;
+        if (score < 0)
+          mateScore = -mateScore;
+      
+        this.report('mate',mateScore,depth);
+      
+        break;
+      }
+      
+      //}}}
 
       delta += delta / 2 | 0;
 
+      //{{{  lower bound?
+      
       if (score <= alpha) {
+      
         alpha = Math.max(-INFINITY, score - delta);
         beta  = Math.min(INFINITY, ((alpha + beta) / 2) | 0);
+      
+        this.report('lowerbound',score,depth);
+      
         this.stats.bestMove = 0;
       }
+      
+      //}}}
+      //{{{  upper bound?
+      
       else if (score >= beta) {
+      
         alpha = Math.max(-INFINITY, ((alpha + beta) / 2) | 0);
         beta  = Math.min(INFINITY,  score + delta);
+      
+        this.report('upperbound',score,depth);
+      
         //depth = Math.max(1,depth-1);
       }
+      
+      //}}}
     }
 
     if (this.stats.timeOut)
       break;
   }
 
-  this.stats.update();
-  this.stats.stop();
+  if (lozzaHost == HOST_WEB) {
+    this.stats.stop();
+    this.report('end',lastScore,lastDepth);
+    board.makeMove(this.rootNode,this.stats.bestMove);
+  }
 
   bestMoveStr = board.formatMove(this.stats.bestMove,UCI_FMT);
 
-  if (lozzaHost == HOST_WEB)
-    board.makeMove(this.rootNode,this.stats.bestMove);
-
   this.uci.send('bestmove',bestMoveStr);
+}
+
+//}}}
+//{{{  .report
+
+lozChess.prototype.report = function(units,value,depth) {
+
+  var depthStr = 'depth ' + depth + ' seldepth ' + this.stats.selDepth;
+  var scoreStr = 'score ' + units + ' ' + value;
+  var nodeStr  = this.stats.nodeStr();
+  var hashStr  = 'hashfull ' + (1000 * this.board.hashUsed / TTSIZE | 0);
+  var pvStr    = 'pv ' + this.board.getPVStr(this.rootNode,this.stats.bestMove,depth);
+
+  this.uci.send('info', depthStr, scoreStr, nodeStr, hashStr, pvStr);
 }
 
 //}}}
@@ -1849,9 +1888,9 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
     if (node.base < BASE_LMR)
       numSlides++;
 
-    //{{{  send current move to UCI
+    //{{{  send current move to UCI?
     
-    if (this.stats.splits > 3)
+    if (this.stats.nodes > 10000000)
       this.uci.send('info currmove ' + board.formatMove(move,SAN_FMT) + ' currmovenumber ' + numLegalMoves);
     
     //}}}
@@ -1909,32 +1948,7 @@ lozChess.prototype.search = function (node, depth, turn, alpha, beta) {
 
         alpha = bestScore;
 
-        //{{{  update best move & send score to UI
-        
         this.stats.bestMove = bestMove;
-        
-        var absScore = Math.abs(bestScore);
-        var units    = 'cp';
-        var uciScore = bestScore;
-        var mv       = board.formatMove(bestMove,board.mvFmt);
-        var pvStr    = board.getPVStr(node,bestMove,depth);
-        
-        if (absScore >= MINMATE && absScore <= MATE) {
-          if (lozzaHost != HOST_NODEJS)
-            pvStr += '#';
-          var units    = 'mate';
-          var uciScore = (MATE - absScore) / 2 | 0;
-          if (score < 0)
-            uciScore = -uciScore;
-        }
-        
-        this.uci.send('info',this.stats.nodeStr(),'depth',this.stats.ply,'seldepth',this.stats.selDepth,'score',units,uciScore,'pv',pvStr);
-        //this.stats.update();
-        
-        if (this.stats.splits > 5)
-          this.uci.send('info hashfull',myround(1000*board.hashUsed/TTSIZE));
-        
-        //}}}
 
         if (bestScore >= beta) {
           node.addKiller(bestScore, bestMove);
@@ -1977,7 +1991,7 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     return;
   }
   
-  this.stats.lazyUpdate();
+  this.stats.checkTime();
   if (this.stats.timeOut)
     return;
   
@@ -2292,10 +2306,6 @@ lozChess.prototype.qSearch = function (node, depth, turn, alpha, beta, sq) {
 
   //{{{  housekeeping
   
-  //this.stats.checkTime();
-  //if (this.stats.timeOut)
-    //return;
-  
   if (node.ply > this.stats.selDepth)
     this.stats.selDepth = node.ply;
   
@@ -2423,8 +2433,6 @@ lozChess.prototype.perft = function () {
 
   var moves = this.perftSearch(this.rootNode, spec.depth, this.board.turn, spec.inner);
 
-  this.stats.update();
-
   var error = moves - spec.moves;
 
   if (error == 0)
@@ -2434,7 +2442,8 @@ lozChess.prototype.perft = function () {
 
   this.stats.nodes = moves;
 
-  this.uci.send('info string',spec.id,spec.depth,moves,spec.moves,err,this.board.fen());
+  if (lozzaHost == HOST_WEB)
+    this.uci.send('info string',spec.id,spec.depth,moves,spec.moves,err,this.board.fen());
 }
 
 //}}}
@@ -2500,9 +2509,6 @@ lozChess.prototype.perftSearch = function (node, depth, turn, inner) {
         this.uci.send('info string',fmove,numNodes);
     }
   }
-
-  if (depth > 2)
-    this.stats.lazyUpdate();
 
   return totalNodes;
 }
@@ -6788,29 +6794,13 @@ function lozStats () {
 lozStats.prototype.init = function () {
 
   this.startTime = Date.now();
-  this.splitTime = 0;
   this.nodes     = 0;  // per analysis
   this.ply       = 0;  // current ID root ply
-  this.splits    = 0;
   this.moveTime  = 0;
   this.maxNodes  = 0;
   this.timeOut   = 0;
   this.selDepth  = 0;
   this.bestMove  = 0;
-}
-
-//}}}
-//{{{  .lazyUpdate
-
-lozStats.prototype.lazyUpdate = function () {
-
-  this.checkTime();
-
-  if (Date.now() - this.splitTime > UILAG) {
-    this.splits++;
-    this.update();
-    this.splitTime = Date.now();
-  }
 }
 
 //}}}
@@ -6834,17 +6824,6 @@ lozStats.prototype.nodeStr = function () {
   var nps = (this.nodes * 1000) / tim | 0;
 
   return 'nodes ' + this.nodes + ' time ' + tim + ' nps ' + nps;
-}
-
-//}}}
-//{{{  .update
-
-lozStats.prototype.update = function () {
-
-  var tim = Date.now() - this.startTime;
-  var nps = (this.nodes * 1000) / tim | 0;
-
-  lozza.uci.send('info',this.nodeStr());
 }
 
 //}}}
@@ -7305,6 +7284,7 @@ onmessage = function(e) {
       SILENT = 1;
       
       var nodes = 0;
+      var time  = 0;
       
       for (var i=0; i < BENCHFENS.length; i++) {
       
@@ -7315,12 +7295,15 @@ onmessage = function(e) {
         docmd('id ' + i);
         docmd('go depth 9');
       
+        lozza.stats.stop();
+      
+        time  += lozza.stats.time;
         nodes += lozza.stats.nodes;
       }
       
       SILENT = 0;
       
-      uci.send('nodes', nodes);
+      uci.send('nodes', nodes, 'time', time);
       
       break;
       

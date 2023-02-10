@@ -284,7 +284,7 @@ function lozUpdatePV () {
   else
     var d = lozData.depth;
 
-  $(lozData.idInfo).prepend(lozData.seconds + ' ' + d + ' (' + lozData.score + lozData.units + ') ' + lozData.pv + '<br>');
+  $(lozData.idInfo).prepend(lozData.seconds + ' ' + d + ' (' + lozData.score + ' ' + lozData.units + ') ' + lozData.pv + '<br>');
 }
 
 //}}}
