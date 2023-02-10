@@ -78,7 +78,6 @@ var MAX_MOVES       = 250;
 var INFINITY        = 30000;              // limited by lozza.board.ttScore bits.
 var MATE            = 20000;
 var MINMATE         = MATE - 2*MAX_PLY;
-var CONTEMPT        = 0;
 var NULL_Y          = 1;
 var NULL_N          = 0;
 var INCHECK_UNKNOWN = MATE + 1;
@@ -2016,12 +2015,12 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
   //{{{  check for draws
   
   if (board.repHi - board.repLo > 100)
-    return CONTEMPT;
+    return 0;
   
   for (var i=board.repHi-5; i >= board.repLo; i -= 2) {
   
     if (board.repLoHash[i] == board.loHash && board.repHiHash[i] == board.hiHash)
-      return CONTEMPT;
+      return 0;
   }
   
   //}}}
@@ -2269,8 +2268,8 @@ lozChess.prototype.alphabeta = function (node, depth, turn, alpha, beta, nullOK,
     }
   
     else {
-      //board.ttPut(TT_EXACT, depth, CONTEMPT, 0, node.ply, alpha, beta, eval);
-      return CONTEMPT;
+      //board.ttPut(TT_EXACT, depth, 0, 0, node.ply, alpha, beta, eval);
+      return 0;
     }
   }
   
@@ -4499,34 +4498,34 @@ lozBoard.prototype.evaluate = function (turn) {
   //todo - lots more here and drawish.
   
   if (numPieces == 2)                                                                  // K v K.
-    return CONTEMPT;
+    return 0;
   
   if (numPieces == 3 && (wNumKnights || wNumBishops || bNumKnights || bNumBishops))    // K v K+N|B.
-    return CONTEMPT;
+    return 0;
   
   if (numPieces == 4 && (wNumKnights || wNumBishops) && (bNumKnights || bNumBishops))  // K+N|B v K+N|B.
-    return CONTEMPT;
+    return 0;
   
   if (numPieces == 4 && (wNumKnights == 2 || bNumKnights == 2))                        // K v K+NN.
-    return CONTEMPT;
+    return 0;
   
   if (numPieces == 5 && wNumKnights == 2 && (bNumKnights || bNumBishops))              //
-    return CONTEMPT;                                                                   //
+    return 0;                                                                   //
                                                                                        // K+N|B v K+NN
   if (numPieces == 5 && bNumKnights == 2 && (wNumKnights || wNumBishops))              //
-    return CONTEMPT;                                                                   //
+    return 0;                                                                   //
   
   if (numPieces == 5 && wNumBishops == 2 && bNumBishops)                               //
-    return CONTEMPT;                                                                   //
+    return 0;                                                                   //
                                                                                        // K+B v K+BB
   if (numPieces == 5 && bNumBishops == 2 && wNumBishops)                               //
-    return CONTEMPT;                                                                   //
+    return 0;                                                                   //
   
   if (numPieces == 4 && wNumRooks && bNumRooks)                                        // K+R v K+R.
-    return CONTEMPT;
+    return 0;
   
   if (numPieces == 4 && wNumQueens && bNumQueens)                                      // K+Q v K+Q.
-    return CONTEMPT;
+    return 0;
   
   //}}}
 
