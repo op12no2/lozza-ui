@@ -4864,7 +4864,7 @@ lozBoard.prototype.netLoad = function () {
 //}}}
 //{{{  .netWebLoad
 
-lozBoard.prototype.netLoad = async function () {
+lozBoard.prototype.netWebLoad = async function () {
 
   // 1. Fetch the binary data
   const response = await fetch(net_weights_file);
