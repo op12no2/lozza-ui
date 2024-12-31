@@ -82,8 +82,12 @@ function screlu(x) {
 //
 
 const TTSIZE           = 1 << 23;
-const net_weights_file = __dirname + '/data/weights_srelu_128_v_39.bin';
 const bench_depth      = 11;
+
+if (lozzaHost == HOST_WEB)
+  var net_weights_file = __dirname + '/data/weights_srelu_128_v_39.bin';
+else
+  var net_weights_file = 'weights_srelu_128_v_39.bin';
 
 //}}}
 //{{{  constants
@@ -4858,17 +4862,12 @@ lozBoard.prototype.netLoad = function () {
 //}}}
 //{{{  .netWebLoad
 
-lozBoard.prototype.netLoad = function () {
-
-  // Example: netLoad function rewritten to work in a browser
-  lozBoard.prototype.netLoad = async function () {
-  // The URL/path to your weights.bin file
-  const netWeightsUrl = 'srelu_128_v_39.bin'; // or full URL: 'https://example.com/path/to/weights.bin'
+lozBoard.prototype.netLoad = async function () {
 
   // 1. Fetch the binary data
-  const response = await fetch(netWeightsUrl);
+  const response = await fetch(net_weights_file);
   if (!response.ok) {
-    console.log('info missing weights file', netWeightsUrl);
+    console.log('info missing weights file');
     return;
   }
 
@@ -4887,11 +4886,6 @@ lozBoard.prototype.netLoad = function () {
   const b2Size = 1;
 
   const expectedBytes = (w1Size + b1Size + w2Size + b2Size) * Float32Array.BYTES_PER_ELEMENT;
-
-  if (arrayBuffer.byteLength !== expectedBytes) {
-    console.log('info malformed weights file', netWeightsUrl, 'expected', expectedBytes, 'bytes');
-    return;
-  }
 
   // 4. Create a Float32Array view for easy access:
   let offset = 0; // offset in bytes
@@ -4922,11 +4916,7 @@ lozBoard.prototype.netLoad = function () {
 
   // 8. Read .net_o_b
   this.net_o_b = new Float32Array(arrayBuffer, offset, b2Size)[0];
-
-  console.log('Weights successfully loaded from:', netWeightsUrl);
 };
-
-}
 
 //}}}
 
