@@ -4,6 +4,8 @@
 
 const BUILD = "4.1";
 
+console.log('xx');
+
 //{{{  history
 /*
 
@@ -84,9 +86,9 @@ function screlu(x) {
 const TTSIZE           = 1 << 23;
 const bench_depth      = 11;
 
-if (lozzaHost == HOST_WEB)
-  var net_weights_file = __dirname + '/data/weights_srelu_128_v_39.bin';
-else
+//if (lozzaHost == HOST_WEB)
+  //var net_weights_file = __dirname + '/data/weights_srelu_128_v_39.bin';
+//else
   var net_weights_file = 'weights_srelu_128_v_39.bin';
 
 //}}}
