@@ -159,12 +159,13 @@ $(function() {
   $('#clearpos').click(function() {
     $(lozData.idInfo).html('');
     uiBoard.position('4k3/8/8/8/8/8/8/4K3');
-    updateFenFromBoard();
+    //updateFenFromBoard();
     return false;
   });
   
   $('#flippos').click(function() {
     var ff = flipFen($('#fen').val());
+    console.log(ff);
     $('#fen').val(ff);
     updateBoardFromFen();
     return false;
