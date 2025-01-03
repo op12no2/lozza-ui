@@ -159,7 +159,7 @@ $(function() {
   $('#clearpos').click(function() {
     $(lozData.idInfo).html('');
     uiBoard.position('4k3/8/8/8/8/8/8/4K3');
-    //updateFenFromBoard();
+    updateFenFromBoard();
     return false;
   });
   
