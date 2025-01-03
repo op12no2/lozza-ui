@@ -56,9 +56,12 @@ const flipFen = (fen) => {
 
   const mirroredBoard = board.split('/').reverse().map(row => {
     return row.split('').map(char => {
+      console.log('in',char);
       if (char == char.toUpperCase()) {
+        console.log('our',char.toLowerCase());
         return char.toLowerCase();
       } else if (char == char.toLowerCase()) {
+        console.log('our',char.toUpperCase());
         return char.toUpperCase();
       }
       return char;
@@ -133,8 +136,6 @@ function anal() {
 //}}}
 
 $(function() {
-
-  $('#flippos').hide();
 
   //{{{  init DOM
   
