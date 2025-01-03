@@ -65,7 +65,15 @@ xxx['R'] = 'r';
 xxx['Q'] = 'q';
 xxx['K'] = 'k';
 xxx['.'] = '.';
-
+xxx['1'] = '1';
+xxx['2'] = '2';
+xxx['3'] = '3';
+xxx['4'] = '4';
+xxx['5'] = '5';
+xxx['6'] = '6';
+xxx['7'] = '7';
+xxx['8'] = '8';
+xxx['9'] = '9';
 
 const flipFen = (fen) => {
 
@@ -88,12 +96,11 @@ const flipFen = (fen) => {
   const fba  = board.split('/');
   const fba2 = fba.reverse();
   const fb = fba2.join('/');
-  console.log(fb);
+  var fb2 = '';
   for (var i=0; i < fb.length; i++) {
-    fb[i] = xxx[fb[i]];
+    fb2 += xxx[fb[i]];
   }
-  console.log(fb);
-  mirroredBoard = fb;
+  mirroredBoard = fb2;
 
   const mirroredColor = color === 'w' ? 'b' : 'w';
 
