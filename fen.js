@@ -56,14 +56,16 @@ const flipFen = (fen) => {
 
   const mirroredBoard = board.split('/').reverse().map(row => {
     return row.split('').map(char => {
-      if (char === char.toUpperCase()) {
+      if (char == char.toUpperCase()) {
         return char.toLowerCase();
-      } else if (char === char.toLowerCase()) {
+      } else if (char == char.toLowerCase()) {
         return char.toUpperCase();
       }
       return char;
     }).join('');
   }).join('/');
+
+  console.log(board,mirroredBoard);
 
   const mirroredColor = color === 'w' ? 'b' : 'w';
 
