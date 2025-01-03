@@ -54,19 +54,32 @@ const flipFen = (fen) => {
 
   const [board, color, castling, enPassant, halfmove, fullmove] = fen.split(' ');
 
-  const mirroredBoard = board.split('/').reverse().map(row => {
-    return row.split('').map(char => {
-      console.log('in',char);
-      if (char == char.toUpperCase()) {
-        console.log('our',char.toLowerCase());
-        return char.toLowerCase();
-      } else if (char == char.toLowerCase()) {
-        console.log('our',char.toUpperCase());
-        return char.toUpperCase();
-      }
-      return char;
-    }).join('');
-  }).join('/');
+  //const mirroredBoard = board.split('/').reverse().map(row => {
+    //return row.split('').map(char => {
+      //console.log('in',char);
+      //if (char == char.toUpperCase()) {
+        //console.log('our',char.toLowerCase());
+        //return char.toLowerCase();
+      //} else if (char == char.toLowerCase()) {
+        //console.log('our',char.toUpperCase());
+        //return char.toUpperCase();
+      //}
+      //return char;
+    //}).join('');
+  //}).join('/');
+
+  const fba  = board.split('/');
+  const fba2 = fba.reverse();
+  const fb = fba2.join('/');
+  for (var i=0; i < fb.length; i++) {
+    if (fb[i] == fb[i].toUpperCase()) {
+      fb[i] = fb[i].toLowerCase();
+    } else if (fb[i] == fb[i].toLowerCase()) {
+      fb[i] = fb[i].toUpperCase();
+    }
+  }
+
+  mirroredBoard = fb;
 
   console.log(board,mirroredBoard);
 
