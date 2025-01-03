@@ -48,6 +48,51 @@ var onDrop = function(source, target, piece, newPos, oldPos, orientation) {
 };
 
 //}}}
+//{{{  flipFen
+
+const flipFen = (fen) => {
+
+  const [board, color, castling, enPassant, halfmove, fullmove] = fen.split(' ');
+
+  const mirroredBoard = board.split('/').reverse().map(row => {
+    return row.split('').map(char => {
+      if (char === char.toUpperCase()) {
+        return char.toLowerCase();
+      } else if (char === char.toLowerCase()) {
+        return char.toUpperCase();
+      }
+      return char;
+    }).join('');
+  }).join('/');
+
+  const mirroredColor = color === 'w' ? 'b' : 'w';
+
+  const mirrorCastling = castling.split('').map(right => {
+    switch(right) {
+      case 'K': return 'k';
+      case 'Q': return 'q';
+      case 'k': return 'K';
+      case 'q': return 'Q';
+      default: return right;
+    }
+  }).join('');
+
+  const mirroredEnPassant = enPassant === '-' ? '-' :
+    enPassant[0] + (9 - parseInt(enPassant[1]));
+
+  const newFen = [
+    mirroredBoard,
+    mirroredColor,
+    mirrorCastling || '-',
+    mirroredEnPassant,
+    halfmove,
+    fullmove
+  ].join(' ');
+
+  return newFen;
+};
+
+//}}}
 //{{{  eval
 
 function eval() {
@@ -119,7 +164,9 @@ $(function() {
   });
   
   $('#flippos').click(function() {
-    uiBoard.orientation('flip');
+    var ff = flipFen($('#fen').val());
+    $('#fen').val(ff);
+    updateBoardFromFen();
     return false;
   });
   
@@ -185,7 +232,7 @@ $(function() {
     engine.onmessage = lozStandardRx;
     $(lozData.idInfo).html('');
     //$(lozData.idInfo).prepend('Version ' + BUILD + ' ' + FENBUILD + '<br>');
-    //engine.postMessage('uci');
+    engine.postMessage('uci');
   }
 
 });
