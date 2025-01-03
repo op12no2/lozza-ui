@@ -134,6 +134,8 @@ function anal() {
 
 $(function() {
 
+  $('#flippos').hide();
+
   //{{{  init DOM
   
   $('button').tooltip({delay: {"show": 1000, "hide": 100}});
