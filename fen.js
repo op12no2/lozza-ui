@@ -218,6 +218,11 @@ $(function() {
     return false;
   });
   
+  $('#getlink').click(function() {
+    window.open('fen.htm?fen=' + $('#fen').val().trim(),'_blank');
+    return true;
+  });
+  
   $('#fen').blur(function() {
     updateBoardFromFen();
     return false;
