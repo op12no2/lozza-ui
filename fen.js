@@ -50,6 +50,23 @@ var onDrop = function(source, target, piece, newPos, oldPos, orientation) {
 //}}}
 //{{{  flipFen
 
+const xxx = [];
+
+xxx['p'] = 'P';
+xxx['n'] = 'N';
+xxx['b'] = 'B';
+xxx['r'] = 'R';
+xxx['q'] = 'Q';
+xxx['k'] = 'K';
+xxx['P'] = 'p';
+xxx['N'] = 'n';
+xxx['B'] = 'b';
+xxx['R'] = 'r';
+xxx['Q'] = 'q';
+xxx['K'] = 'k';
+xxx['.'] = '.';
+
+
 const flipFen = (fen) => {
 
   const [board, color, castling, enPassant, halfmove, fullmove] = fen.split(' ');
@@ -72,16 +89,10 @@ const flipFen = (fen) => {
   const fba2 = fba.reverse();
   const fb = fba2.join('/');
   for (var i=0; i < fb.length; i++) {
-    if (fb[i] == fb[i].toUpperCase()) {
-      fb[i] = fb[i].toLowerCase();
-    } else if (fb[i] == fb[i].toLowerCase()) {
-      fb[i] = fb[i].toUpperCase();
-    }
+    fb[i] = xxx[fb[i]];
   }
 
   mirroredBoard = fb;
-
-  console.log(board,mirroredBoard);
 
   const mirroredColor = color === 'w' ? 'b' : 'w';
 
@@ -183,7 +194,6 @@ $(function() {
   
   $('#flippos').click(function() {
     var ff = flipFen($('#fen').val());
-    console.log(ff);
     $('#fen').val(ff);
     updateBoardFromFen();
     return false;
