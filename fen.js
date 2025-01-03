@@ -88,10 +88,11 @@ const flipFen = (fen) => {
   const fba  = board.split('/');
   const fba2 = fba.reverse();
   const fb = fba2.join('/');
+  console.log(fb);
   for (var i=0; i < fb.length; i++) {
     fb[i] = xxx[fb[i]];
   }
-
+  console.log(fb);
   mirroredBoard = fb;
 
   const mirroredColor = color === 'w' ? 'b' : 'w';
