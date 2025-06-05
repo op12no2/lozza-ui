@@ -136979,7 +136979,7 @@ function uciExec (commands) {
 
 //}}}
 
-function onmessage(m) {
+onmessage = function(m) {
   console.log('in onmessage');
   uciExec(m.data);
 }
