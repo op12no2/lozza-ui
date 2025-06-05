@@ -177,7 +177,7 @@ function postGo () {
       go = 'go movetime 10000';
 
   $('#strength').html('Strength (' + level + ')'); //jic
-  engine.postMessage('debug off')
+  //engine.postMessage('debug off')
   engine.postMessage(go);
 }
 
@@ -307,7 +307,7 @@ $(function() {
   //$(lozData.idInfo).prepend('Version ' + BUILD + ' ' + PLAYBUILD + '<br>');
   engine.postMessage('uci')
   engine.postMessage('ucinewgame')
-  engine.postMessage('debug off')
+  //engine.postMessage('debug off')
 
   if (!args.fen && args.c == 'b' || args.fen && args.fen.search(' w') !== -1 && args.c == 'b') {
     board.orientation('black');
