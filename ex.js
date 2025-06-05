@@ -1,7 +1,7 @@
 
 // https://github.com/op12no2
 
-var lozza = new Worker('lozza.js');
+var lozza = new Worker('lozza51rel.js');
 
 lozza.onmessage = function (e) {
   $('#dump').append(e.data + '<br>');
