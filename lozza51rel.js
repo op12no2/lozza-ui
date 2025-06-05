@@ -136487,10 +136487,10 @@ function uciSend () {
 
   //fs.writeSync(1, s + '\n');
 
-  if (nodeHost)
+  //if (nodeHost)
     console.log(s);
-  else
-    postMessage(s);
+  //else
+    //postMessage(s);
 
 }
 
@@ -137168,4 +137168,3 @@ if (nodeHost) {
 }
 
 //}}}
-
