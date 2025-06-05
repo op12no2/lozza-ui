@@ -136489,8 +136489,10 @@ function uciSend () {
 
   if (nodeHost)
     console.log(s);
-  else
+  else {
+    console.log('debug', s);
     postMessage(s);
+  }
 
 }
 
@@ -136978,6 +136980,7 @@ function uciExec (commands) {
 //}}}
 
 function onmessage(m) {
+  console.log('in onmessage');
   uciExec(m.data);
 }
 
