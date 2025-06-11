@@ -14,8 +14,6 @@ https://github.com/oakmac/chessboardjs
 
 https://github.com/jhlywa/chess.js
 
-https://github.com/davidbau/seedrandom
-
 https://github.com/jquery/jquery
 
 https://github.com/topics/bootstrap
