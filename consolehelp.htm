@@ -40,22 +40,16 @@ body {padding: 20px;}
 <p>Web context only. Clear the previous output.</p>
 
 <p><b>board</b></p>
-<p>Display a textual FEN and in a web context a graphical representation of the current position.</p>
+<p>Display a FEN representatiing the current board position.</p>
 
 <p><b>bench</b></p>
 <p>display a total node count for a selection of FENs. Takes a few seconds to run.</p>
 
-<p><b>perft</b> <b>depth</b> d [<b>moves</b> m] [<b>inner</b> <b>1</b>|<b>0</b>]</p>
-<p>Perform a perft analysis to a depth of d ply based on the current position. m is the expected number of moves and is optional, defaulting to 0. <b>inner 1</b> will show inner node counts with the default being inner 0. You can see Lozza do various PERFTs <a href="https://op12no2.github.io/lozza-ui/perft.htm">here</a>.</p>
+<p><b>perft</b> <b>depth</b> d</p>
+<p>Perform a perft analysis to a depth of d ply based on the current position.</p>
 
 <p><b>eval</b></p>
-<p>Show how the static evaluation of the current position is constructed.</p>
-
-<p><b>id</b> idstring</p>
-<p>Attach an identification label to the current position. Only relevant if UCI debugging is on.</p>
-
-<p><b>ping</b></p>
-<p>Check that the engine is alive.</p>
+<p>Show an evaluation for the current position.</p>
 
 <p><b>net</b></p>
 <p>Display network properties.</p>
@@ -76,11 +70,8 @@ body {padding: 20px;}
 <p><b>b</b> == board</p>
 <p><b>n</b> == net</p>
 
-<p><b>NOTES</b></p>
-<p>An explicit <b>ucinewgame</b> is needed to reset the transposition tables; and is required before the first position. It is optional during a game since it has no effect other than to clear the TT.</p>
-<p>Lozza plays it's best move when a <b>go</b> command completes, changing the current position.</p>
-<p>The current position is unchanged after a <b>perft</b></p>
-<p><a href="https://op12no2.github.io/lozza-ui">Lozza Chess</a>
+<p>
+<a href="https://op12no2.github.io/lozza-ui">Lozza Chess</a>
 </body>
 </html>
 
