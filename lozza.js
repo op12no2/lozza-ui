@@ -11273,7 +11273,7 @@ const nodeHost = (typeof process) != 'undefined';
 
 if (!nodeHost) {
   onmessage = function(e) {
-    uciExec(m.data);
+    uciExec(e.data);
   }
 }
 
