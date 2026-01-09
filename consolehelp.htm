@@ -23,21 +23,23 @@ body {padding: 20px;}
 
 <body>
 
+<h3>Console</h3>
+
 <p>This Lozza UI allows you to type UCI commands in a console-like manner.</p>
 
-<p><b>COMMAND EXTENSIONS</b></p>
+<h3>Command extensions</h3>
 
 <p>In addition to the standard UCI protocol, the following commands can be used, most of which also work offline; i.e. by running "node lozza.js".</p>
 
-<p><b>quit</b></p>
-<p>Kill the Lozza engine. In the web console only, you can use <b>start</b> to restart it.</p>
+<p><b>quit | stop</b></p>
+<p>Kill the Lozza engine. Use <b>start</b> to restart it.</p>
 
 <p><b>start</b></p>
-<p>Web context only. Start Lozza. i.e. create a new web worker containing the Lozza. After a start the following are automatically sent: <b>uci, ucinewgame, position startpos, board</b>.</p>
+<p>Start Lozza. i.e. create a new web worker containing the Lozza.</p>
 <p>A <b>start</b> command is issued when the console UI starts.</p>
 
 <p><b>clear</b></p>
-<p>Web context only. Clear the previous output.</p>
+<p>Clear the previous output.</p>
 
 <p><b>board</b></p>
 <p>Display a FEN representatiing the current board position.</p>
@@ -51,24 +53,39 @@ body {padding: 20px;}
 <p><b>eval</b></p>
 <p>Show an evaluation for the current position.</p>
 
+<p><b>moves</b></p>
+<p>Display moves for the current position.</p>
+
 <p><b>net</b></p>
 <p>Display network properties.</p>
 
 <p><b>et</b></p>
-<p>eval tests; specifically the UE part of NNUE</p>
+<p>eval tests; specifically the UE part of NNUE.</p>
 
 <p><b>pt</b></p>
 <p>PERFT tests</p>
 
-<p><b>SHORTCUTS</b></p>
+<h3>Shortcuts</h3>
 <p><b>u</b> == ucinewgame</p>
 <p><b>q</b> == quit</p>
+<p><b>s</b> == stop</p>
+<p><b>c</b> == clear</p>
 <p><b>p</b> == position</p>
+<p><b>e</b> == eval</p>
 <p><b>p s</b> == position startpos</p>
 <p><b>g</b> == go</p>
 <p><b>g d</b> = go depth</p>
 <p><b>b</b> == board</p>
 <p><b>n</b> == net</p>
+<p><b>m</b> == moves</p>
+
+<h3>Optional URL parameters</h3>
+
+<p><b>cmd=<i>command;command;command...</i></b>
+
+<p>Example:-
+
+<p><a href="https://op12no2.github.io/lozza-ui/console.htm?cmd=u;p s;b">https://op12no2.github.io/lozza-ui/console.htm?cmd=u;p s;b</a>
 
 <p>
 <a href="https://op12no2.github.io/lozza-ui">Lozza Chess</a>
