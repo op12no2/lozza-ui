@@ -16,8 +16,14 @@ function lozStandardRx (e) {
 
   lozData.message = e.data;
   lozData.message = lozData.message.trim();
-  lozData.message = lozData.message.replace(/\n/g,'<br>');
   lozData.message = lozData.message.replace(/\r/g,'');
+
+  // keep original with spaces for display
+  var display = lozData.message.replace(/\n/g,'<br>');
+  display = display.replace(/ /g,'&nbsp;');
+
+  // collapse spaces for tokenization
+  lozData.message = lozData.message.replace(/\n/g,'<br>');
   lozData.message = lozData.message.replace(/\s+/g,' ');
   lozData.tokens  = lozData.message.split(' ');
 
@@ -25,7 +31,7 @@ function lozStandardRx (e) {
     lozUpdateBoard();
   }
 
-  $(lozData.idInfo).append(lozData.message + '<br>');
+  $(lozData.idInfo).append(display + '<br>');
   $(lozData.idInfo)[0].scrollTop = $(lozData.idInfo)[0].scrollHeight;
 }
 
