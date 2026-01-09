@@ -4,7 +4,7 @@ This is a sister project to my Javascript chess engine [Lozza](https://github.co
 
 You can try them here:-
 
-- https://op12no2.github.io/lozza-ui/play.htm
+- https://op12no2.github.io/lozza-ui
 
 ## Acknowledgements
 
