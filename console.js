@@ -25,7 +25,8 @@ function lozStandardRx (e) {
     lozUpdateBoard();
   }
 
-  $(lozData.idInfo).prepend(lozData.message + '<br>');
+  $(lozData.idInfo).append(lozData.message + '<br>');
+  $(lozData.idInfo)[0].scrollTop = $(lozData.idInfo)[0].scrollHeight;
 }
 
 //}}}
@@ -38,23 +39,26 @@ function tx (m) {
     engine           = new Worker(lozData.source);
     engine.onmessage = lozStandardRx;
     //tx('uci');
-    tx('ucinewgame');
-    tx('position startpos');
-    tx('board');
+    //tx('ucinewgame');
+    //tx('position startpos');
+    //tx('board');
     return;
   }
   if (!engine) {
-    $('#info').prepend('engine not running<br>');
+    $('#info').append('engine not running<br>');
+    $('#info')[0].scrollTop = $('#info')[0].scrollHeight;
     return;
   }
-  $('#info').prepend('<b>> '+m+'</b><br>');
-  if (m == 'quit') {
+  $('#info').append('<b>> '+m+'</b><br>');
+  $('#info')[0].scrollTop = $('#info')[0].scrollHeight;
+  if (m == 'quit' || m == 'q' || m == 'stop' || m == 's') {
     engine.terminate();
     engine = null;
-    $('#info').prepend('engine stopped<br>');
+    $('#info').append('engine stopped - use start to restart it<br>');
+    $('#info')[0].scrollTop = $('#info')[0].scrollHeight;
     return;
   }
-  if (m == 'clear') {
+  if (m == 'clear' || m == 'c') {
     $(lozData.idInfo).html('');
     return;
   }
@@ -81,6 +85,19 @@ $(function() {
   //$(lozData.idInfo).prepend('Version ' + BUILD + ' ' + CONSOLEBUILD + '<br>');
 
   tx('start');
+
+  //{{{  run commands from URL params
+
+  if (args.cmd) {
+    var cmds = args.cmd.split(';');
+    for (var i = 0; i < cmds.length; i++) {
+      var cmd = cmds[i].trim();
+      if (cmd)
+        tx(cmd);
+    }
+  }
+
+  //}}}
 
   $('#stdin').val('').focus();
 });

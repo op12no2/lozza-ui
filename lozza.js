@@ -2046,6 +2046,44 @@ let bCount = 0;
 
 const objHistory = new Uint32Array(15 * 256);
 
+const PIECE_CHAR = ['.', 'P', 'N', 'B', 'R', 'Q', 'K', '.', '.', 'p', 'n', 'b', 'r', 'q', 'k'];
+
+// printBoard
+
+function printBoard (turn) {
+
+  let s = '\n';
+
+  for (let i = 0; i < 8; i++) {
+    s += '  +---+---+---+---+---+---+---+---+\n';
+    s += (8 - i) + ' ';
+    for (let j = 0; j < 8; j++) {
+      const sq  = B88[i * 8 + j];
+      const obj = bdB[sq];
+      const ch  = obj === 0 ? ' ' : PIECE_CHAR[obj];
+      s += '| ' + ch + ' ';
+    }
+    s += '|\n';
+  }
+
+  s += '  +---+---+---+---+---+---+---+---+\n';
+  s += '    a   b   c   d   e   f   g   h\n\n';
+
+  s += 'turn:   ' + (turn === WHITE ? 'white' : 'black') + '\n';
+
+  let rights = '';
+  if (bdRights & WHITE_RIGHTS_KING)  rights += 'K';
+  if (bdRights & WHITE_RIGHTS_QUEEN) rights += 'Q';
+  if (bdRights & BLACK_RIGHTS_KING)  rights += 'k';
+  if (bdRights & BLACK_RIGHTS_QUEEN) rights += 'q';
+  s += 'rights: ' + (rights || '-') + '\n';
+
+  s += 'ep:     ' + (bdEp ? COORDS[bdEp] : '-');
+
+  return s;
+
+}
+
 // zobrists
 
 // prng
@@ -3984,65 +4022,6 @@ function isDraw () {
 
 }
 
-// formatFen
-
-function formatFen (turn) {
-
-  var fen = '';
-  var n   = 0;
-
-  for (var i=0; i < 8; i++) {
-    for (var j=0; j < 8; j++) {
-      var sq  = B88[i*8 + j]
-      var obj = bdB[sq];
-      if (obj === 0)
-        n++;
-      else {
-        if (n) {
-          fen += '' + n;
-          n = 0;
-        }
-        fen += UMAP[obj];
-      }
-    }
-    if (n) {
-      fen += '' + n;
-      n = 0;
-    }
-    if (i < 7)
-      fen += '/';
-  }
-
-  if (turn === WHITE)
-    fen += ' w';
-  else
-    fen += ' b';
-
-  if (bdRights) {
-    fen += ' ';
-    if (bdRights & WHITE_RIGHTS_KING)
-      fen += 'K';
-    if (bdRights & WHITE_RIGHTS_QUEEN)
-      fen += 'Q';
-    if (bdRights & BLACK_RIGHTS_KING)
-      fen += 'k';
-    if (bdRights & BLACK_RIGHTS_QUEEN)
-      fen += 'q';
-  }
-  else
-    fen += ' -';
-
-  if (bdEp)
-    fen += ' ' + COORDS[bdEp];
-  else
-    fen += ' -';
-
-  fen += ' 0 1';
-
-  return fen;
-
-}
-
 // formatMove
 
 function formatMove (move) {
@@ -4680,11 +4659,11 @@ function uciExec (commands) {
       case 'board':
       case 'b': {
         // board
-        
-        uciSend(formatFen(bdTurn));
-        
+
+        uciSend(printBoard(bdTurn));
+
         break;
-        
+
       }
 
       case 'bench': {

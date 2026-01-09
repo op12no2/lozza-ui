@@ -17,10 +17,15 @@
 <link rel="stylesheet" type="text/css" media="screen" href="css/chessboard-0.3.0.css" />
 
 <style>
-body {padding: 20px;}
+html, body {height: 100%; margin: 0;}
+body {padding: 20px; display: flex; flex-direction: column; box-sizing: border-box;}
 #stats {font-weight: bold;}
 #board {width: 100%; max-width: 350px;}
-input  {padding: 3px;}
+#terminal {background: #1e1e1e; border-radius: 4px; padding: 10px; font-family: monospace; flex: 1; display: flex; flex-direction: column;}
+#info {flex: 1; overflow-y: auto; color: #d4d4d4;}
+#stdin-row {display: flex; align-items: center; color: #d4d4d4; border-top: 1px solid #333; padding-top: 8px; margin-top: 8px;}
+#stdin-row span {margin-right: 8px; color: #6c6;}
+#stdin {flex: 1; background: transparent; border: none; outline: none; color: #d4d4d4; font-family: monospace; font-size: 14px;}
 </style>
 
 <script src="jquery-ui-1.8.24/js/jquery-1.8.2.min.js"></script>
@@ -28,7 +33,7 @@ input  {padding: 3px;}
 <script src="js/chessboard-0.3.0.js"></script>
 <script src="lozuilib.js"></script>
 <script src="console.js"></script>
-<script src="lozza51rel.js"></script>
+<script src="lozza.js"></script>
 
 </head>
 
@@ -39,12 +44,13 @@ input  {padding: 3px;}
 <a class="btn btn-info"    href="consolehelp.htm">Help</a>
 </p>
 
-<form autocomplete="off" role="form">
-<input class="form-control" id="stdin" type="text" size=80 value="">
-</form>
-
-<p id="info">
-</p>
+<div id="terminal">
+<div id="info"></div>
+<div id="stdin-row">
+<span>&gt;</span>
+<input autocomplete="off" id="stdin" type="text" value="">
+</div>
+</div>
 
 </body>
 </html>
