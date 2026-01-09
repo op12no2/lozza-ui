@@ -2069,7 +2069,7 @@ function printBoard (turn) {
   s += '  +---+---+---+---+---+---+---+---+\n';
   s += '    a   b   c   d   e   f   g   h\n\n';
 
-  s += 'turn:   ' + (turn === WHITE ? 'white' : 'black') + '\n';
+  s += 'stm:   ' + (turn === WHITE ? 'white' : 'black') + '\n';
 
   let rights = '';
   if (bdRights & WHITE_RIGHTS_KING)  rights += 'K';
@@ -4568,8 +4568,6 @@ function uciExec (commands) {
 
           const mb = Math.max(uciGetInt(tokens, 'value', ttDefault), 1);
 
-          console.log(mb);
-
           ttResize(mb);
 
         }
@@ -4699,7 +4697,8 @@ function uciExec (commands) {
         
           const fen = BENCHFENS[i];
         
-          process.stdout.write(i.toString() + '\r');
+          if (nodeHost)
+            process.stdout.write(i.toString() + '\r');
         
           newGame();
           uciExec('position fen ' + fen);
@@ -4844,7 +4843,7 @@ function uciExec (commands) {
         genMoves(rootNode, bdTurn);
         
         while(move = getNextMove(rootNode))
-          console.log(formatMove(move));
+          uciSend(formatMove(move));
         
         initNode(rootNode);
         
