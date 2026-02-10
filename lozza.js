@@ -1,4 +1,3 @@
-#!/usr/local/bin/node
 "use strict"
 
 const INT32_MIN = -0x80000000; // -2147483648
