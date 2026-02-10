@@ -1,3 +1,4 @@
+#!/usr/local/bin/node
 "use strict"
 
 const INT32_MIN = -0x80000000; // -2147483648
@@ -2749,7 +2750,7 @@ function feed(chunk) {
 
 if (!nodeHost) {
   onmessage = function(e) {
-    feed(e.data);
+    uciExecLine(e.data.trim());
   };
 }
 else {
