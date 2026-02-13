@@ -4,12 +4,12 @@
 const lozza = new Worker('lozza.js');
 const dump = document.getElementById('ucioutput');
 
-lozza.onmessage = function(e)
-{
-  ucioutput.textContent += e.data; // Lozza reponds with text as per UCI 
+lozza.onmessage = function(e) {
+  ucioutput.textContent += e.data + '<br>'; // Lozza reponds with text as per UCI 
 };
 
 lozza.postMessage('uci');
 lozza.postMessage('ucinewgame');
 lozza.postMessage('position startpos');
 lozza.postMessage('go depth 10');
+
