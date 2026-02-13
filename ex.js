@@ -1,14 +1,15 @@
 
 // https://github.com/op12no2
 
-var lozza = new Worker('lozza.js');
+const lozza = new Worker('lozza.js');
+const dump = document.getElementById('ucioutput');
 
-lozza.onmessage = function (e) {
-  $('#dump').append(e.data + '<br>');
+lozza.onmessage = function(e)
+{
+  ucioutput.textContent += e.data; // Lozza reponds with text as per UCI 
 };
 
-lozza.postMessage('uci');             // get build etc
-lozza.postMessage('ucinewgame');      // reset TT
+lozza.postMessage('uci');
+lozza.postMessage('ucinewgame');
 lozza.postMessage('position startpos');
-lozza.postMessage('go depth 10');     // 10 ply search
-
+lozza.postMessage('go depth 10');
