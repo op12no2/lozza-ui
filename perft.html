@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perft</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 70em;
+    margin: 2em auto;
+    padding: 0 1em;
+  }
+  table {
+    border-collapse: collapse;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  td, th {
+    text-align: left;
+    padding: 0.3em 1em 0.3em 0;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  .num { text-align: right; }
+  .pass { color: green; }
+  .fail { color: red; }
+  #custom input[type=text] {
+    width: 34em;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  #summary { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>Perft</h1>
+
+<p>Counts the leaf nodes of the move tree to a fixed depth and checks them against the known values.
+The first thing to run when the move generator changes.
+<a href="https://www.chessprogramming.org/Perft_Results">Perft results</a> on the chess programming wiki.</p>
+
+<table id="results">
+  <tr><th>#</th><th>position</th><th>fen</th><th class="num">depth</th><th class="num">expected</th><th class="num">nodes</th><th class="num">ms</th><th class="num">nps</th><th>result</th></tr>
+</table>
+
+<p id="summary"></p>
+
+<h2>Your own</h2>
+
+<p id="custom">
+  <input type="text" id="fen" value="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">
+  depth <input type="number" id="depth" value="4" min="1" max="7" style="width:3em">
+  <button id="run">Run</button>
+  <span id="custom-result"></span>
+</p>
+
+<script>
+const tests = [
+  ['start position', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 5, 4865609],
+  ['kiwipete',       'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1', 4, 4085603],
+  ['cpw position 3', '8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1', 5, 674624],
+  ['cpw position 4', 'r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1', 4, 422333],
+  ['cpw position 5', 'rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8', 4, 2103487],
+  ['cpw position 6', 'r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10', 4, 3894594],
+  ['en passant',     '8/5bk1/8/2Pp4/8/1K6/8/8 w - d6 0 1', 6, 824064],
+  ['en passant pin', '8/8/1k6/2b5/2pP4/8/5K2/8 b - d3 0 1', 6, 1440467],
+  ['castling',       '5k2/8/8/8/8/8/8/4K2R w K - 0 1', 6, 661072],
+  ['castling check', 'r3k2r/8/5Q2/8/8/3q4/8/R3K2R w KQkq - 0 1', 4, 1720476],
+  ['promotion',      '4k3/1P6/8/8/8/8/K7/8 w - - 0 1', 6, 217342],
+  ['promotion check','2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1', 6, 3821001],
+];
+
+const lozza = new Worker('lozza.js');
+const results = document.getElementById('results');
+const summary = document.getElementById('summary');
+const customResult = document.getElementById('custom-result');
+
+let index = 0;
+let passed = 0;
+let custom = false;
+
+function perft(fen, depth) {
+  lozza.postMessage('position fen ' + fen);
+  lozza.postMessage('perft depth ' + depth);
+}
+
+lozza.onmessage = function(e) {
+  const m = e.data.match(/^depth \d+ nodes (\d+) time (\d+) nps (\d+)$/);
+  if (!m)
+    return;
+  const nodes = parseInt(m[1]);
+  if (custom) {
+    customResult.textContent = 'nodes ' + nodes.toLocaleString() + ' in ' + m[2] + ' ms, ' + parseInt(m[3]).toLocaleString() + ' nps';
+    custom = false;
+    return;
+  }
+  const t = tests[index];
+  const ok = nodes === t[3];
+  if (ok)
+    passed++;
+  const row = results.insertRow();
+  row.innerHTML = '<td>' + (index + 1) + '</td><td>' + t[0] + '</td><td>' + t[1] + '</td><td class="num">' + t[2]
+    + '</td><td class="num">' + t[3].toLocaleString() + '</td><td class="num">' + nodes.toLocaleString()
+    + '</td><td class="num">' + m[2] + '</td><td class="num">' + parseInt(m[3]).toLocaleString()
+    + '</td><td class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? 'pass' : 'FAIL') + '</td>';
+  index++;
+  if (index < tests.length)
+    perft(tests[index][1], tests[index][2]);
+  else
+    summary.textContent = passed + ' of ' + tests.length + ' passed';
+};
+
+document.getElementById('run').onclick = function() {
+  if (index < tests.length)
+    return; // wait for the table to finish, the worker is busy
+  custom = true;
+  customResult.textContent = 'running...';
+  perft(document.getElementById('fen').value, document.getElementById('depth').value);
+};
+
+perft(tests[0][1], tests[0][2]);
+</script>
+
+</body>
+</html>

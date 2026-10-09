@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mates</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 60em;
+    margin: 2em auto;
+    padding: 0 1em;
+  }
+  table {
+    border-collapse: collapse;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  td, th {
+    text-align: left;
+    padding: 0.3em 1em 0.3em 0;
+    vertical-align: top;
+  }
+  .pass { color: green; }
+  .fail { color: red; }
+</style>
+</head>
+<body>
+
+<h1>Mates</h1>
+
+<p>Each position is searched to a fixed depth and the reported mate distance and best move are checked.
+Positive is mate for the side to move, negative is being mated.</p>
+
+<table id="results">
+  <tr><th>#</th><th>fen</th><th>expected</th><th>got</th><th>result</th></tr>
+</table>
+
+<p id="summary"></p>
+
+<script>
+const tests = [
+  {fen: '6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1',                                   mate: 1,  move: 'a1a8'},
+  {fen: '1r5k/6pp/8/8/8/8/5PPP/1Q4K1 w - - 0 1',                               mate: 1,  move: 'b1b8'},
+  {fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4', mate: 1,  move: 'h5f7'},
+  {fen: 'k7/8/1K6/8/8/8/8/7R w - - 0 1',                                       mate: 1,  move: 'h1h8'},
+  {fen: 'k7/7p/1K6/8/8/8/8/6R1 b - - 0 1',                                     mate: -1, move: 'any'},
+  {fen: 'r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 0',   mate: 2,  move: 'd5f6'},
+  {fen: 'r1bq2r1/b4pk1/p1pp1p2/1p2pP2/1P2P1PB/3P4/1PPQ2P1/R3K2R w KQ - 0 1',   mate: 2,  move: 'd2h6'},
+  {fen: '2r3k1/p4p2/3Rp2p/1p2P1pK/8/1P4P1/P3Q2P/1q6 b - - 0 1',                mate: 3,  move: 'b1g6'},
+];
+
+const lozza = new Worker('lozza.js');
+const results = document.getElementById('results');
+const summary = document.getElementById('summary');
+
+let index = 0;
+let mate = 0;
+let passed = 0;
+
+function runTest() {
+  const test = tests[index];
+  mate = 0;
+  lozza.postMessage('ucinewgame');
+  lozza.postMessage('position fen ' + test.fen);
+  lozza.postMessage('go depth 10');
+}
+
+lozza.onmessage = function(e) {
+
+  const line = e.data;
+  const test = tests[index];
+
+  if (line.startsWith('info ')) {
+    const m = line.match(/score mate (-?\d+)/);
+    mate = m ? parseInt(m[1]) : 0;
+    return;
+  }
+
+  if (line.startsWith('bestmove ')) {
+    const move = line.split(' ')[1];
+    const ok = mate === test.mate && (test.move === 'any' || move === test.move);
+    if (ok)
+      passed++;
+    const row = results.insertRow();
+    row.innerHTML = '<td>' + (index + 1) + '</td><td>' + test.fen + '</td><td>mate ' + test.mate + ' ' + test.move
+      + '</td><td>' + (mate ? 'mate ' + mate : 'no mate') + ' ' + move
+      + '</td><td class="' + (ok ? 'pass' : 'fail') + '">' + (ok ? 'pass' : 'FAIL') + '</td>';
+    index++;
+    if (index < tests.length)
+      runTest();
+    else
+      summary.textContent = passed + ' of ' + tests.length + ' passed';
+  }
+};
+
+runTest();
+</script>
+
+</body>
+</html>

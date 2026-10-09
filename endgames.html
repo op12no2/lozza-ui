@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Endgames</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 60em;
+    margin: 2em auto;
+    padding: 0 1em;
+  }
+  table {
+    border-collapse: collapse;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  td, th {
+    text-align: left;
+    padding: 0.3em 1em 0.3em 0;
+    vertical-align: top;
+  }
+  .pass { color: green; }
+  .fail { color: red; }
+</style>
+</head>
+<body>
+
+<h1>Endgames</h1>
+
+<p>Lozza plays both sides of random K+Q v K and K+R v K positions at a fixed depth.
+A test passes if white mates within 50 moves.</p>
+
+<table id="results">
+  <tr><th>#</th><th>fen</th><th>result</th><th>moves</th></tr>
+</table>
+
+<p id="summary"></p>
+
+<script>
+const DEPTH = 8;
+const MAX_MOVES = 50;
+const PER_TYPE = 6;
+
+// a fresh seed each run, or ?seed=12345 in the url to repeat a run
+let seed = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0) || 1;
+
+const startSeed = seed;
+
+function rand(n) {
+  seed ^= seed << 13;
+  seed ^= seed >>> 17;
+  seed ^= seed << 5;
+  return (seed >>> 0) % n;
+}
+
+// random legal white-to-move position: white king and piece, black king not in check and not adjacent
+function makePosition(piece) {
+  while (true) {
+    const wk = rand(64);
+    const bk = rand(64);
+    const wp = rand(64);
+    if (wk === bk || wk === wp || bk === wp)
+      continue;
+    const df = Math.abs((wk & 7) - (bk & 7));
+    const dr = Math.abs((wk >> 3) - (bk >> 3));
+    if (df <= 1 && dr <= 1)
+      continue;
+    const pf = Math.abs((wp & 7) - (bk & 7));
+    const pr = Math.abs((wp >> 3) - (bk >> 3));
+    if (pf === 0 || pr === 0 || (piece === 'Q' && pf === pr))
+      continue; // keep it simple, no shared lines at all
+    const board = [];
+    for (let i = 0; i < 64; i++)
+      board.push('.');
+    board[wk] = 'K';
+    board[bk] = 'k';
+    board[wp] = piece;
+    let fen = '';
+    for (let rank = 7; rank >= 0; rank--) {
+      let empty = 0;
+      for (let file = 0; file < 8; file++) {
+        const c = board[rank * 8 + file];
+        if (c === '.') {
+          empty++;
+        }
+        else {
+          fen += (empty ? empty : '') + c;
+          empty = 0;
+        }
+      }
+      fen += (empty ? empty : '') + (rank ? '/' : '');
+    }
+    return fen + ' w - - 0 1';
+  }
+}
+
+const tests = [];
+for (let i = 0; i < PER_TYPE; i++)
+  tests.push(makePosition('Q'));
+for (let i = 0; i < PER_TYPE; i++)
+  tests.push(makePosition('R'));
+
+const lozza = new Worker('lozza.js');
+const results = document.getElementById('results');
+const summary = document.getElementById('summary');
+
+let index = 0;
+let moves = [];
+let passed = 0;
+
+function play() {
+  lozza.postMessage('position fen ' + tests[index] + ' moves ' + moves.join(' '));
+  lozza.postMessage('moves');
+}
+
+function finish(ok, text) {
+  if (ok)
+    passed++;
+  const row = results.insertRow();
+  row.innerHTML = '<td>' + (index + 1) + '</td><td>' + tests[index] + '</td><td class="' + (ok ? 'pass' : 'fail') + '">'
+    + text + '</td><td>' + moves.join(' ') + '</td>';
+  index++;
+  moves = [];
+  if (index < tests.length) {
+    lozza.postMessage('ucinewgame');
+    play();
+  }
+  else {
+    summary.textContent = passed + ' of ' + tests.length + ' passed, seed ' + startSeed;
+  }
+}
+
+lozza.onmessage = function(e) {
+  const line = e.data;
+  if (line === 'checkmate') {
+    finish(moves.length % 2 === 1, 'mate in ' + Math.ceil(moves.length / 2) + ' moves');
+  }
+  else if (line === 'stalemate') {
+    finish(false, 'FAIL stalemate');
+  }
+  else if (/^([a-h][1-8][a-h][1-8][qrbn]? ?)+$/.test(line)) {
+    if (moves.length >= MAX_MOVES * 2)
+      finish(false, 'FAIL no mate in ' + MAX_MOVES + ' moves');
+    else
+      lozza.postMessage('go depth ' + DEPTH);
+  }
+  else if (line.startsWith('bestmove ')) {
+    moves.push(line.split(' ')[1]);
+    play();
+  }
+};
+
+lozza.postMessage('ucinewgame');
+play();
+</script>
+
+</body>
+</html>

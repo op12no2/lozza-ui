@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Openings</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 70em;
+    margin: 2em auto;
+    padding: 0 1em;
+  }
+  #controls label {
+    margin-right: 1em;
+  }
+  #boards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1em;
+    margin: 1em 0;
+  }
+  .game {
+    width: 192px;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(8, 24px);
+    grid-template-rows: repeat(8, 24px);
+    border: 1px solid #444;
+  }
+  .sq {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .light { background: #eed; }
+  .dark { background: #997; }
+  .caption {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+    margin: 0.3em 0;
+    white-space: pre;
+  }
+  #summary {
+    font-weight: bold;
+  }
+  pre {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Openings</h1>
+
+<p>Twenty workers, one for each legal first move. Each searches the position after its move at depth 1, then 2, and
+so on, showing the end of the line it found each time. When they all reach the chosen depth the boards are sorted
+by score, so the top left is the first move Lozza likes best.</p>
+
+<div id="controls">
+  <label>Depth <select id="depth"></select></label>
+  <button id="start">Start</button>
+</div>
+
+<div id="boards"></div>
+
+<p id="summary"></p>
+
+<pre id="results"></pre>
+
+<script>
+const PIECES = {
+  K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙',
+  k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟',
+  '.': ''
+};
+
+const FIRST_MOVES = [
+  'a2a3', 'a2a4', 'b2b3', 'b2b4', 'c2c3', 'c2c4', 'd2d3', 'd2d4', 'e2e3', 'e2e4',
+  'f2f3', 'f2f4', 'g2g3', 'g2g4', 'h2h3', 'h2h4', 'b1a3', 'b1c3', 'g1f3', 'g1h3'
+];
+
+const boardsEl = document.getElementById('boards');
+const summaryEl = document.getElementById('summary');
+const resultsEl = document.getElementById('results');
+const depthEl = document.getElementById('depth');
+
+for (let d = 1; d <= 16; d++) {
+  const opt = document.createElement('option');
+  opt.textContent = d;
+  if (d === 8)
+    opt.selected = true;
+  depthEl.appendChild(opt);
+}
+
+let games = [];
+let done = 0;
+
+function makeGame(first) {
+  const el = document.createElement('div');
+  el.className = 'game';
+  const board = document.createElement('div');
+  board.className = 'board';
+  for (let rank = 8; rank >= 1; rank--) {
+    for (let file = 0; file < 8; file++) {
+      const sq = document.createElement('div');
+      sq.className = 'sq ' + ((rank + file) % 2 ? 'dark' : 'light');
+      board.appendChild(sq);
+    }
+  }
+  const caption = document.createElement('div');
+  caption.className = 'caption';
+  caption.textContent = first;
+  el.appendChild(caption);
+  el.appendChild(board);
+  boardsEl.appendChild(el);
+  return {first: first, el: el, board: board, caption: caption, depth: 0, score: 0, pv: [], rows: [], worker: null};
+}
+
+// the 8 rows of a fen's board, rank 8 first, empty squares as '.'
+function fenRows(board) {
+  return board.split('/').map(function(row) {
+    return row.replace(/[1-8]/g, function(n) { return '.'.repeat(n); }).split('');
+  });
+}
+
+function show(game) {
+  const squares = game.board.children;
+  for (let r = 0; r < 8; r++) {
+    for (let f = 0; f < 8; f++)
+      squares[r * 8 + f].textContent = PIECES[game.rows[r][f]];
+  }
+}
+
+function caption(game) {
+  game.caption.textContent = game.first + '  d' + game.depth + '  ' + (game.score > 0 ? '+' : '') + game.score;
+}
+
+// search the position after the first move one ply deeper than last time
+function deeper(game) {
+  game.depth++;
+  game.worker.postMessage('position startpos moves ' + game.first);
+  game.worker.postMessage('go depth ' + game.depth);
+}
+
+function rank() {
+  games.sort(function(a, b) { return b.score - a.score; });
+  let text = '';
+  for (let i = 0; i < games.length; i++) {
+    const g = games[i];
+    g.caption.textContent = (i + 1) + '. ' + g.caption.textContent;
+    boardsEl.appendChild(g.el); // re-append in ranked order
+    text += g.caption.textContent + '  ' + g.pv.join(' ') + '\n';
+    g.worker.terminate();
+    g.worker = null;
+  }
+  resultsEl.textContent = text;
+  summaryEl.textContent = 'Lozza likes ' + games[0].first + ' best and ' + games[games.length - 1].first + ' least';
+}
+
+function onMessage(game, line) {
+  const fen = line.match(/^([1-8rnbqkpRNBQKP\/]+) [wb] /);
+  if (fen) {
+    game.rows = fenRows(fen[1]);
+    show(game);
+    if (game.depth < parseInt(depthEl.value)) {
+      deeper(game);
+    }
+    else {
+      done++;
+      if (done === games.length)
+        rank();
+    }
+  }
+  else if (line.startsWith('info ')) {
+    const m = line.match(/score (cp|mate) (-?\d+) .* pv (.*)$/);
+    if (m) {
+      game.score = -(m[1] === 'cp' ? parseInt(m[2]) : (m[2] > 0 ? 10000 : -10000)); // black to move, so negate
+      game.pv = m[3].split(' ');
+    }
+  }
+  else if (line.startsWith('bestmove ')) {
+    // show the end of the line found, then go deeper
+    caption(game);
+    game.worker.postMessage('position startpos moves ' + game.first + ' ' + game.pv.join(' '));
+    game.worker.postMessage('board');
+  }
+}
+
+function start() {
+  for (let i = 0; i < games.length; i++)
+    if (games[i].worker)
+      games[i].worker.terminate();
+  boardsEl.innerHTML = '';
+  summaryEl.textContent = '';
+  resultsEl.textContent = '';
+  games = [];
+  done = 0;
+  for (let i = 0; i < FIRST_MOVES.length; i++) {
+    const game = makeGame(FIRST_MOVES[i]);
+    game.worker = new Worker('lozza.js');
+    game.worker.onmessage = function(e) { onMessage(game, e.data); };
+    game.worker.postMessage('ucinewgame');
+    games.push(game);
+    deeper(game);
+  }
+}
+
+document.getElementById('start').onclick = start;
+
+start();
+</script>
+
+</body>
+</html>

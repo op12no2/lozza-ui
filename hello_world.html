@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hello world</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 60em;
+    margin: 2em auto;
+    padding: 0 1em;
+  }
+  pre, code, textarea, input {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  pre {
+    background: #f4f4f4;
+    padding: 1em;
+    overflow-x: auto;
+  }
+  #ucioutput {
+    height: 100%;
+    overflow-y: auto;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+
+<h1>Hello world</h1>
+
+<pre id="ucioutput"></pre>
+
+<script>
+const lozza = new Worker('lozza.js');
+const ucioutput = document.getElementById('ucioutput');
+
+lozza.onmessage = function(e) {
+  ucioutput.textContent += e.data + '\n'; // lozza reponds with text as per UCI
+  ucioutput.scrollTop = ucioutput.scrollHeight;
+};
+
+lozza.postMessage('uci');
+lozza.postMessage('ucinewgame');
+lozza.postMessage('position startpos');
+lozza.postMessage('board');
+lozza.postMessage('eval');
+lozza.postMessage('go depth 8');
+lozza.postMessage('go movetime 1000')
+
+</script>
+
+</body>
+</html>

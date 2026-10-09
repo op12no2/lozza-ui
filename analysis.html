@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analysis</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 60em;
+    margin: 2em auto;
+    padding: 0 1em;
+  }
+  #setup {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2em;
+    align-items: flex-start;
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(8, 48px);
+    grid-template-rows: repeat(8, 48px);
+    width: 384px;
+    border: 2px solid #444;
+  }
+  .sq, .pal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    user-select: none;
+  }
+  .light { background: #eed; }
+  .dark { background: #997; }
+  .over { outline: 3px solid #fd6; outline-offset: -3px; }
+  .palette {
+    display: grid;
+    grid-template-columns: repeat(6, 48px);
+    grid-template-rows: 48px;
+    width: 288px;
+    margin: 0.3em 0;
+  }
+  .pal {
+    cursor: grab;
+    background: #f4f4f4;
+  }
+  #controls label {
+    display: block;
+    margin: 0.4em 0;
+  }
+  #fen {
+    width: 26em;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  button {
+    margin-right: 0.5em;
+  }
+  #status {
+    margin: 1em 0;
+    font-weight: bold;
+  }
+  table {
+    border-collapse: collapse;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  td, th {
+    text-align: left;
+    padding: 0.2em 1em 0.2em 0;
+    vertical-align: top;
+  }
+</style>
+</head>
+<body>
+
+<h1>Analysis</h1>
+
+<p>Drag pieces onto the board, drag them off to remove them, or paste a FEN. Then analyse.</p>
+
+<div id="setup">
+  <div>
+    <div class="palette" id="black-palette"></div>
+    <div id="board"></div>
+    <div class="palette" id="white-palette"></div>
+  </div>
+  <div id="controls">
+    <label>Preset <select id="preset"></select></label>
+    <label>FEN <input id="fen"> <button id="setfen">Set</button></label>
+    <label>To move <input type="radio" name="stm" value="w" checked> white <input type="radio" name="stm" value="b"> black</label>
+    <label>Castling
+      <input type="checkbox" id="K"> K <input type="checkbox" id="Q"> Q
+      <input type="checkbox" id="k"> k <input type="checkbox" id="q"> q
+    </label>
+    <p><button id="analyse">Analyse</button><button id="stop">Stop</button><button id="eval">Eval</button><button id="clear">Clear board</button></p>
+  </div>
+</div>
+
+<div id="status"></div>
+
+<table id="results"></table>
+
+<script>
+const PIECES = {
+  K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙',
+  k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟'
+};
+
+const PRESETS = [
+  ['Start position', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'],
+  ['Kiwipete',       'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1'],
+  ['Perft 3',        '8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1'],
+  ['Perft 4',        'r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1'],
+  ['Perft 5',        'rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8'],
+  ['Mate in 3',      '2r3k1/p4p2/3Rp2p/1p2P1pK/8/1P4P1/P3Q2P/1q6 b - - 0 1'],
+  ['Empty',          '8/8/8/8/8/8/8/8 w - - 0 1']
+];
+
+const FILES = 'abcdefgh';
+
+const boardEl = document.getElementById('board');
+const fenEl = document.getElementById('fen');
+const presetEl = document.getElementById('preset');
+const statusEl = document.getElementById('status');
+const resultsEl = document.getElementById('results');
+
+let board = {};      // square id -> piece letter
+let tail = '- 0 1';  // ep square and move counters from the last fen set, reset by hand edits
+let lozza = null;
+let dragging = '';   // 'K' from the palette or a square id from the board
+
+// --- board setup ---
+
+function squareId(rank, file) {
+  return FILES[file] + rank;
+}
+
+function render() {
+  for (let rank = 1; rank <= 8; rank++) {
+    for (let file = 0; file < 8; file++) {
+      const id = squareId(rank, file);
+      document.getElementById(id).textContent = PIECES[board[id]] || '';
+    }
+  }
+  fenEl.value = toFen();
+}
+
+function toFen() {
+  let fen = '';
+  for (let rank = 8; rank >= 1; rank--) {
+    let empty = 0;
+    for (let file = 0; file < 8; file++) {
+      const p = board[squareId(rank, file)];
+      if (p) {
+        fen += (empty ? empty : '') + p;
+        empty = 0;
+      }
+      else {
+        empty++;
+      }
+    }
+    fen += (empty ? empty : '') + (rank > 1 ? '/' : '');
+  }
+  const stm = document.querySelector('input[name=stm]:checked').value;
+  let rights = '';
+  for (const r of ['K', 'Q', 'k', 'q'])
+    if (document.getElementById(r).checked)
+      rights += r;
+  return fen + ' ' + stm + ' ' + (rights || '-') + ' ' + tail;
+}
+
+function fromFen(fen) {
+  const parts = fen.trim().split(/\s+/);
+  board = {};
+  const rows = parts[0].split('/');
+  for (let i = 0; i < 8; i++) {
+    let file = 0;
+    for (const c of rows[i] || '') {
+      if (c >= '1' && c <= '8') {
+        file += parseInt(c);
+      }
+      else if (PIECES[c]) {
+        board[squareId(8 - i, file)] = c;
+        file++;
+      }
+    }
+  }
+  document.querySelector('input[name=stm][value=' + (parts[1] === 'b' ? 'b' : 'w') + ']').checked = true;
+  const rights = parts[2] || '-';
+  for (const r of ['K', 'Q', 'k', 'q'])
+    document.getElementById(r).checked = rights.indexOf(r) >= 0;
+  tail = (parts[3] || '-') + ' ' + (parts[4] || '0') + ' ' + (parts[5] || '1');
+  render();
+}
+
+function place(id, piece) {
+  stop();
+  tail = '- 0 1';
+  if (piece)
+    board[id] = piece;
+  else
+    delete board[id];
+  render();
+}
+
+// build the squares
+for (let rank = 8; rank >= 1; rank--) {
+  for (let file = 0; file < 8; file++) {
+    const sq = document.createElement('div');
+    sq.id = squareId(rank, file);
+    sq.className = 'sq ' + ((rank + file) % 2 ? 'dark' : 'light');
+    sq.draggable = true;
+    sq.ondragstart = function(e) {
+      if (!board[sq.id]) {
+        e.preventDefault();
+        return;
+      }
+      dragging = sq.id;
+      e.dataTransfer.setData('text', sq.id);
+    };
+    sq.ondragover = function(e) {
+      e.preventDefault();
+      sq.classList.add('over');
+    };
+    sq.ondragleave = function() {
+      sq.classList.remove('over');
+    };
+    sq.ondrop = function(e) {
+      e.preventDefault();
+      sq.classList.remove('over');
+      if (dragging.length === 1) {
+        place(sq.id, dragging);
+      }
+      else if (dragging && dragging !== sq.id) {
+        const piece = board[dragging];
+        delete board[dragging];
+        place(sq.id, piece);
+      }
+      dragging = '';
+    };
+    sq.ondragend = function(e) {
+      // dropped off the board = remove the piece
+      if (dragging.length === 2 && e.dataTransfer.dropEffect === 'none')
+        place(dragging, '');
+      dragging = '';
+    };
+    boardEl.appendChild(sq);
+  }
+}
+
+// build the palettes
+for (const p of 'kqrbnp') {
+  for (const piece of [p.toUpperCase(), p]) {
+    const el = document.createElement('div');
+    el.className = 'pal';
+    el.textContent = PIECES[piece];
+    el.draggable = true;
+    el.ondragstart = function(e) {
+      dragging = piece;
+      e.dataTransfer.setData('text', piece);
+    };
+    document.getElementById(piece === p ? 'black-palette' : 'white-palette').appendChild(el);
+  }
+}
+
+// presets
+for (let i = 0; i < PRESETS.length; i++) {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = PRESETS[i][0];
+  presetEl.appendChild(opt);
+}
+
+presetEl.onchange = function() {
+  stop();
+  fromFen(PRESETS[presetEl.value][1]);
+};
+
+document.getElementById('setfen').onclick = function() {
+  stop();
+  fromFen(fenEl.value);
+};
+
+document.getElementById('clear').onclick = function() {
+  stop();
+  fromFen(PRESETS[PRESETS.length - 1][1]);
+};
+
+document.querySelectorAll('input[name=stm], #K, #Q, #k, #q').forEach(function(el) {
+  el.onchange = function() {
+    stop();
+    render();
+  };
+});
+
+// --- analysis ---
+
+function stop() {
+  if (lozza) {
+    lozza.terminate(); // the only way to interrupt a search, so start a fresh worker next time
+    lozza = null;
+    statusEl.textContent = 'Stopped';
+  }
+}
+
+function kingsOk() {
+  const pieces = Object.values(board);
+  if (pieces.filter(function(p) { return p === 'K'; }).length === 1 && pieces.filter(function(p) { return p === 'k'; }).length === 1)
+    return true;
+  statusEl.textContent = 'Each side needs exactly one king';
+  return false;
+}
+
+// static eval from the side to move's point of view
+function showEval() {
+  stop();
+  if (!kingsOk())
+    return;
+  resultsEl.innerHTML = '';
+  lozza = new Worker('lozza.js');
+  lozza.onmessage = function(e) {
+    if (!/^-?\d+$/.test(e.data))
+      return; // the hash table being allocated
+    stop();
+    statusEl.textContent = 'Eval ' + e.data + ' for ' + (toFen().split(' ')[1] === 'w' ? 'white' : 'black');
+  };
+  lozza.postMessage('position fen ' + toFen());
+  lozza.postMessage('eval');
+}
+
+function analyse() {
+  stop();
+  if (!kingsOk())
+    return;
+  const fen = toFen();
+  resultsEl.innerHTML = '<tr><th>depth</th><th>score</th><th>nodes</th><th>time</th><th>pv</th></tr>';
+  statusEl.textContent = 'Analysing...';
+  lozza = new Worker('lozza.js');
+  lozza.onmessage = function(e) {
+    const line = e.data;
+    const m = line.match(/^info depth (\d+) seldepth \d+ score (\S+ \S+) nodes (\d+) time (\d+) nps \d+ hashfull \d+ pv (.*)$/);
+    if (m) {
+      const row = resultsEl.insertRow();
+      row.innerHTML = '<td>' + m[1] + '</td><td>' + m[2] + '</td><td>' + m[3] + '</td><td>' + m[4] + '</td><td>' + m[5] + '</td>';
+    }
+    else if (line.startsWith('bestmove ')) {
+      statusEl.textContent = 'Finished, ' + line;
+    }
+  };
+  lozza.postMessage('ucinewgame');
+  lozza.postMessage('position fen ' + fen);
+  lozza.postMessage('go infinite');
+}
+
+document.getElementById('analyse').onclick = analyse;
+document.getElementById('stop').onclick = stop;
+document.getElementById('eval').onclick = showEval;
+
+fromFen(PRESETS[0][1]);
+</script>
+
+</body>
+</html>
