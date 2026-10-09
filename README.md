@@ -2,7 +2,7 @@
 
 Example web pages for [Lozza](https://github.com/op12no2/lozza).
 
-In every case all you need is `lozza.js` from one of the [releases](https://github.com/op12no2/lozza/wiki/Release-overview).
+In every case all you need is `lozza.js` from one of the Lozza [releases](https://github.com/op12no2/lozza/wiki/Release-overview).
 
 ## Hello world
 
