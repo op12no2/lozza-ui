@@ -1,10 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lozza examples (local)</title>
+</head>
+<body>
 
-<html>
-<p><a href="http://localhost:8000/examples/hello.html">hello world</a>
-<p><a href="http://localhost:8000/examples/stop.html">stop</a>
-<p><a href="http://localhost:8000/examples/promise.html">promise wrapper</a>
-<p><a href="http://localhost:8000/examples/analysis.html">multi pv analysis</a>
-<p><a href="http://localhost:8000/examples/play.html">play</a>
+<p>Engine: <code id="engine"></code> (<span id="switch"></span>)</p>
+
+<p><a id="hello" href="">hello world</a>
+<p><a id="stop" href="">stop</a>
+<p><a id="promise" href="">promise wrapper</a>
+<p><a id="analysis" href="">multi pv analysis</a>
+<p><a id="play" href="">play</a>
+
+<script>
+const builds = ['lozzaNNUE', 'lozzaHCE', 'lozzaPST', 'lozzaBeal'];
+const engine = new URLSearchParams(location.search).get('engine') || 'lozzaHCE';
+
+document.getElementById('engine').textContent = engine + '.js';
+document.getElementById('switch').innerHTML = builds.filter(b => b !== engine).map(b => '<a href="local.html?engine=' + b + '">' + b + '</a>').join(' ');
+
+for (const id of ['hello', 'stop', 'promise', 'analysis', 'play'])
+  document.getElementById(id).href = 'http://localhost:8000/examples/' + id + '.html?engine=' + engine;
+</script>
+
+</body>
 </html>
-
-

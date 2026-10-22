@@ -35,11 +35,16 @@
 
 <p>At high depths <code>stop</code> can take a while, as it's only checked between iterative deepening iterations. For an immediate stop use <code>worker.terminate()</code> and create a new worker; the hash is lost and there's a short startup delay.</p>
 
+<p>Engine: <code id="engine"></code></p>
+
 <pre id="ucioutput"></pre>
 
 <script>
-const lozza = new Worker('../lozza.js');
+const engine = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaPST|lozzaBeal
+const lozza = new Worker('../' + engine + '.js');
 const ucioutput = document.getElementById('ucioutput');
+
+document.getElementById('engine').textContent = engine + '.js';
 
 lozza.onmessage = function(e) {
   ucioutput.textContent += e.data + '\n'; // lozza reponds with text as per UCI

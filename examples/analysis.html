@@ -54,6 +54,8 @@
 
 <h1>Multi PV analysis</h1>
 
+<p>Engine: <code id="engine"></code></p>
+
 <p>Live analysis of a position using <code>go infinite</code> with MultiPV, parsing the engine's <code>info</code> lines as they arrive to show the best few lines. Enter a FEN or pick an example. Note that <b>stop</b> (and changing position or MultiPV) can take a while to respond at higher depths, because Lozza only checks for <code>stop</code> between iterative deepening iterations, and with MultiPV each iteration searches several lines.</p>
 
 <div id="controls">
@@ -189,7 +191,9 @@ const exampleBox = document.getElementById('examples');
 const rowsEl   = document.getElementById('rows');
 const statusEl = document.getElementById('status');
 
-const engine = createEngine('../lozza.js');
+const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaPST|lozzaBeal
+document.getElementById('engine').textContent = engineFile + '.js';
+const engine = createEngine('../' + engineFile + '.js');
 
 let rows      = [];    // rows[multipv-1] = latest parsed info for that line
 let flip      = 1;     // -1 when black is to move, to show scores from White's view

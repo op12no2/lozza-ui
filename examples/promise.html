@@ -31,6 +31,8 @@
 
 <h1>Promise wrapper</h1>
 
+<p>Engine: <code id="engine"></code></p>
+
 <p>A small wrapper around the Lozza worker that turns commands with a definite last reply (<code>uci</code>, <code>isready</code>, <code>go</code>) into promises, so calling code can simply <code>await</code> them. The demo below runs a few searches, including an infinite search ended by <code>stop</code> and positions with no legal moves.</p>
 
 <pre id="ucioutput"></pre>
@@ -173,7 +175,9 @@ function show (s) {
 
 async function demo () {
 
-  const engine = createEngine('../lozza.js');
+  const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaPST|lozzaBeal
+  document.getElementById('engine').textContent = engineFile + '.js';
+  const engine = createEngine('../' + engineFile + '.js');
 
   // uncomment to see the raw UCI traffic as well
   // engine.onLine = function (line) { show('  < ' + line); };

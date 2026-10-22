@@ -2,7 +2,7 @@
 
 Lozza speaks UCI. Most commands also have a one-letter shorthand for typing at a console.
 
-Lozza runs as a Web Worker: `new Worker('lozza.js')`, then `postMessage` each command and read the replies in `onmessage`, one line per message (see the examples). It has no stdin or stdout of its own; a host for any other environment has to supply the worker globals `postMessage` and `close` and deliver commands to `onmessage`.
+Lozza runs as a Web Worker: `new Worker('lozzaHCE.js')` (or any of the builds), then `postMessage` each command and read the replies in `onmessage`, one line per message (see the examples). It has no stdin or stdout of its own; a host for any other environment has to supply the worker globals `postMessage` and `close` and deliver commands to `onmessage`.
 
 Commands sent during a search are queued: `stop` ends the search at the next pause between iterations, `isready` is answered there, and everything else runs after `bestmove`.
 

@@ -33,11 +33,16 @@
 
 <p>The most basic way to use Lozza in a web page is to load it as a Web Worker, post UCI commands to it with <code>postMessage</code> and display each reply line as it arrives in <code>onmessage</code>.</p>
 
+<p>Engine: <code id="engine"></code></p>
+
 <pre id="ucioutput"></pre>
 
 <script>
-const lozza = new Worker('../lozza.js');
+const engine = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaPST|lozzaBeal
+const lozza = new Worker('../' + engine + '.js');
 const ucioutput = document.getElementById('ucioutput');
+
+document.getElementById('engine').textContent = engine + '.js';
 
 lozza.onmessage = function(e) {
   ucioutput.textContent += e.data + '\n'; // lozza reponds with text as per UCI

@@ -83,6 +83,8 @@
 
 <h1>Play Lozza</h1>
 
+<p>Engine: <code id="engine"></code></p>
+
 <p>A minimal game against Lozza. It shows the usual game loop: after every move the page sends the whole game as <code>position startpos moves ...</code> and asks for a move with <code>go wtime btime winc binc</code>, so Lozza manages its own time from the clocks the page keeps. There is no chess library; Lozza's own (non-standard) <code>moves</code> and <code>board</code> commands give the legal moves and the FEN to draw. Checkmate and stalemate are detected from <code>bestmove 0000</code> and its score. To keep it simple, pawns always promote to a queen, and draws by repetition, the 50 move rule or insufficient material are not declared by the page.</p>
 
 <div id="controls">
@@ -174,7 +176,9 @@ function words (line) {
 // game state
 //
 
-const engine = createEngine('../lozza.js');
+const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaPST|lozzaBeal
+document.getElementById('engine').textContent = engineFile + '.js';
+const engine = createEngine('../' + engineFile + '.js');
 
 const PIECES = {k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟'};
 

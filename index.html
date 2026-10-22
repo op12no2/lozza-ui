@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lozza examples</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 90%;
+    margin: auto;
+    padding: 0 1em;
+  }
+  code {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Lozza examples</h1>
+
+<p>Engine: <code id="engine"></code> (<span id="switch"></span>)</p>
+
+<ul id="examples"></ul>
+
+<p>Each example loads the engine with <code>new Worker()</code>, posts UCI commands to it and reads the replies in <code>onmessage</code>. The commands are listed in <a href="COMMANDS.md">COMMANDS.md</a>. Add <code>?engine=lozzaNNUE</code> and so on to this page, or to any example, to choose the build.</p>
+
+<script>
+const builds = ['lozzaNNUE', 'lozzaHCE', 'lozzaPST', 'lozzaBeal'];
+
+const examples = [
+  ['hello.html',    'Hello world',       'load Lozza, send a few commands, show the replies'],
+  ['stop.html',     'Stop command',      '<code>go infinite</code> then <code>stop</code> a second later'],
+  ['promise.html',  'Promise wrapper',   'a promise based interface to the worker'],
+  ['analysis.html', 'Multi PV analysis', 'analyse a position with several lines'],
+  ['play.html',     'Play Lozza',        'a game against Lozza with clocks'],
+];
+
+const engine = new URLSearchParams(location.search).get('engine') || 'lozzaHCE';
+
+document.getElementById('engine').textContent = engine + '.js';
+
+document.getElementById('switch').innerHTML = builds
+  .filter(b => b !== engine)
+  .map(b => '<a href="index.html?engine=' + b + '">' + b + '</a>')
+  .join(' ');
+
+document.getElementById('examples').innerHTML = examples
+  .map(e => '<li><a href="examples/' + e[0] + '?engine=' + engine + '">' + e[1] + '</a> - ' + e[2] + '</li>')
+  .join('\n');
+</script>
+
+</body>
+</html>
