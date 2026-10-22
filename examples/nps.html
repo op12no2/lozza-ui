@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare search speed</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 90%;
+    margin: auto;
+    padding: 0 1em;
+  }
+  code {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  table {
+    border-collapse: collapse;
+  }
+  th, td {
+    text-align: right;
+    padding: 0.3em 1em;
+    border-bottom: 1px solid #ddd;
+  }
+  th:first-child, td:first-child {
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+
+<h1>Compare search speed</h1>
+
+<p>Each build searches the same position for <span id="seconds"></span> seconds, one after the other, and the table shows what its last <code>info</code> line reported: depth, nodes and nodes per second. The builds share one search; only the evaluation differs, so the differences in speed are the cost of the evaluation, and the depth reached shows what that buys back. The Beal build has no evaluation to speak of and no evaluation based pruning, so it searches more nodes to a lower depth.</p>
+
+<p>Position: <code id="fen"></code></p>
+
+<p><button id="run">Run</button> <span id="status"></span></p>
+
+<table>
+<thead><tr><th>Build</th><th>Depth</th><th>Nodes</th><th>NPS</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+
+<script>
+const builds  = ['lozzaNNUE', 'lozzaHCE', 'lozzaPST', 'lozzaBeal'];
+const fen     = 'r1bq1rk1/pp2bppp/2n1pn2/2pp4/3P4/2P1PN2/PP1NBPPP/R1BQ1RK1 w - - 0 8';
+const seconds = 5;
+
+document.getElementById('fen').textContent     = fen;
+document.getElementById('seconds').textContent = seconds;
+
+const rows   = document.getElementById('rows');
+const status = document.getElementById('status');
+const button = document.getElementById('run');
+
+for (const b of builds)
+  rows.insertAdjacentHTML('beforeend', '<tr id="' + b + '"><td>' + b + '.js</td><td></td><td></td><td></td></tr>');
+
+// run one build: load it as a worker, search, keep the last info line, then quit the worker
+
+function measure (build) {
+
+  return new Promise(resolve => {
+
+    const worker = new Worker('../' + build + '.js');
+    let last = null;
+
+    worker.onmessage = function (e) {
+      const line = e.data;
+      if (line.startsWith('info depth'))
+        last = line;
+      else if (line.startsWith('bestmove')) {
+        worker.postMessage('quit');
+        resolve(last);
+      }
+    };
+
+    worker.postMessage('uci');
+    worker.postMessage('ucinewgame');
+    worker.postMessage('position fen ' + fen);
+    worker.postMessage('go movetime ' + seconds * 1000);
+
+  });
+
+}
+
+function field (line, name) {
+  const m = line.match(new RegExp('\\b' + name + ' (\\d+)'));
+  return m ? parseInt(m[1]) : 0;
+}
+
+async function run () {
+
+  button.disabled = true;
+
+  for (const b of builds) {
+    status.textContent = 'searching with ' + b + '.js';
+    const line  = await measure(b);
+    const cells = document.getElementById(b).children;
+    cells[1].textContent = field(line, 'depth');
+    cells[2].textContent = field(line, 'nodes').toLocaleString();
+    cells[3].textContent = field(line, 'nps').toLocaleString();
+  }
+
+  status.textContent = 'done';
+  button.disabled = false;
+
+}
+
+button.onclick = run;
+</script>
+
+</body>
+</html>

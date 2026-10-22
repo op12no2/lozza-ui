@@ -13,6 +13,7 @@
 <p><a id="promise" href="">promise wrapper</a>
 <p><a id="analysis" href="">multi pv analysis</a>
 <p><a id="play" href="">play</a>
+<p><a id="nps" href="">compare search speed</a>
 
 <script>
 const builds = ['lozzaNNUE', 'lozzaHCE', 'lozzaPST', 'lozzaBeal'];
@@ -21,7 +22,7 @@ const engine = new URLSearchParams(location.search).get('engine') || 'lozzaHCE';
 document.getElementById('engine').textContent = engine + '.js';
 document.getElementById('switch').innerHTML = builds.filter(b => b !== engine).map(b => '<a href="local.html?engine=' + b + '">' + b + '</a>').join(' ');
 
-for (const id of ['hello', 'stop', 'promise', 'analysis', 'play'])
+for (const id of ['hello', 'stop', 'promise', 'analysis', 'play', 'nps'])
   document.getElementById(id).href = 'http://localhost:8000/examples/' + id + '.html?engine=' + engine;
 </script>
 

@@ -13,6 +13,8 @@ The engine files here are the current development builds, so they change from ti
 
 [index.html](https://op12no2.github.io/lozza-ui/index.html) lists the examples (hello world, stop, a promise wrapper, multi PV analysis and a game against Lozza) for the engine given by `?engine=`, default lozzaHCE.
 
+[Compare search speed](https://op12no2.github.io/lozza-ui/examples/nps.html) searches one position with every build and tabulates depth, nodes and nodes per second.
+
 To run them locally, serve this directory (a worker script does not load from a `file://` page), e.g. `python3 -m http.server 8000`, and open [examples/local.html](examples/local.html).
 
 Lozza and these examples are MIT licensed.
