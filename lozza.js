@@ -193,10 +193,59 @@ function hex32(x) {
   return (x >>> 0).toString(16).padStart(8, '0');
 }
 
+// the fen of a position; the move number is not kept, so it is always 1
+
+function fen_string(ply) {
+
+  const pos = nodes[ply].pos;
+  const b   = nodes[ply].board;
+
+  let s = '';
+
+  for (let rank = 7; rank >= 0; rank--) {
+    let empty = 0;
+    for (let file = 0; file < 8; file++) {
+      const piece = b[rank * 8 + file];
+      if (piece === 0) {
+        empty++;
+        continue;
+      }
+      if (empty) {
+        s += empty;
+        empty = 0;
+      }
+      const ch = '.pnbrqk'[piece & 7];
+      s += piece & BLACK ? ch : ch.toUpperCase();
+    }
+    if (empty)
+      s += empty;
+    if (rank)
+      s += '/';
+  }
+
+  const r = pos[P_RIGHTS];
+
+  let rights = '';
+  if (r & WHITE_RIGHTS_KING)  rights += 'K';
+  if (r & WHITE_RIGHTS_QUEEN) rights += 'Q';
+  if (r & BLACK_RIGHTS_KING)  rights += 'k';
+  if (r & BLACK_RIGHTS_QUEEN) rights += 'q';
+
+  return s + ' ' + (pos[P_STM] === BLACK ? 'b' : 'w') +
+         ' ' + (rights || '-') +
+         ' ' + (pos[P_EP] ? sq_name(pos[P_EP]) : '-') +
+         ' ' + pos[P_HMC] + ' 1';
+
+}
+
+// the board command: the fen first, as lozza 11 prints it (web pages read it), then a diagram
+
 function pp_position(ply) {
 
   const pos = nodes[ply].pos;
   const b   = nodes[ply].board;
+
+  uci_send(fen_string(ply));
 
   for (let rank = 7; rank >= 0; rank--) {
     let s = (rank + 1) + '  ';

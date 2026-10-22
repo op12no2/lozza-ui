@@ -30,7 +30,7 @@ When the position has no legal moves there is no search. `go` prints `info depth
 | command | short | what it does |
 |---|---|---|
 | `moves` | `m` | the legal moves in the current position, one per line in UCI notation, nothing when there are none (as in Lozza 11) |
-| `board` | `b` | prints the board, side to move, castling rights and so on |
+| `board` | `b` | prints the FEN of the current position (as Lozza 11 does), then a diagram and the position details |
 | `eval` | `e` | the static evaluation of the current position, in centipawns from the side to move's point of view |
 | `perft <depth>` | `f` | counts the leaf nodes of the legal move tree to that depth |
 | `bench [depth]` | `h` | searches a fixed set of positions (depth 10 by default) and prints the total node count and speed |
