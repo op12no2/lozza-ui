@@ -2,7 +2,7 @@
 // https://github.com/op12no2/lozza
 //
 
-const VER = "13.0";
+const VER = "12.0";
 
 // bin/tune.sh builds with TRACE = true so evaluate() records its features for the tuner
 
