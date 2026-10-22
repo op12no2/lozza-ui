@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promise wrapper</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 90%;
+    margin: auto;
+    padding: 0 1em;
+  }
+  pre, code, textarea, input {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  pre {
+    background: #ffffff;
+    padding: 1em;
+    overflow-x: auto;
+  }
+  #ucioutput {
+    height: 100%;
+    overflow-y: auto;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+
+<h1>Promise wrapper</h1>
+
+<p>A small wrapper around the Lozza worker that turns commands with a definite last reply (<code>uci</code>, <code>isready</code>, <code>go</code>) into promises, so calling code can simply <code>await</code> them. The demo below runs a few searches, including an infinite search ended by <code>stop</code> and positions with no legal moves.</p>
+
+<pre id="ucioutput"></pre>
+
+<script>
+
+// Lozza replies to commands asynchronously, one line per message. Some
+// commands have a definite last line: uci ends with uciok, isready with
+// readyok and go with bestmove. The wrapper below returns a promise for
+// commands like that, which resolves when the last line arrives, so
+// calling code can just await it:
+//
+//   await engine.isReady();
+//   const result = await engine.go('depth 10');
+//   console.log(result.bestmove);
+//
+// Commands with no reply (position, ucinewgame, setoption, stop) are just
+// posted to the worker.
+
+function createEngine (url) {
+
+  const worker  = new Worker(url);
+  const waiters = []; // pending promises: {prefix, lines, resolve}
+
+  const engine = {
+
+    onLine: null, // optional callback, sees every line (handy for logging)
+
+    // post a command; if untilPrefix is given, return a promise that
+    // resolves with all the lines received up to and including the first
+    // line that starts with untilPrefix
+
+    send: function (cmd, untilPrefix) {
+
+      let promise = null;
+
+      if (untilPrefix) {
+        promise = new Promise(function (resolve) {
+          waiters.push({prefix: untilPrefix, lines: [], resolve: resolve});
+        });
+      }
+
+      worker.postMessage(cmd);
+
+      return promise;
+
+    },
+
+    uci: function () {
+      return engine.send('uci', 'uciok');
+    },
+
+    isReady: function () {
+      return engine.send('isready', 'readyok');
+    },
+
+    // go resolves with {bestmove, score, lines}, where score is the last
+    // score reported, e.g. {cp: 31} or {mate: 2}; bestmove is '0000' if
+    // there are no legal moves, with score {mate: 0} (mated) or {cp: 0}
+    // (stalemate)
+
+    go: function (params) {
+      return engine.send('go ' + params, 'bestmove').then(function (lines) {
+        return {
+          bestmove: words(lines[lines.length-1])[1],
+          score:    lastScore(lines),
+          lines:    lines
+        };
+      });
+    },
+
+    stop: function () {
+      engine.send('stop'); // the pending go promise resolves when bestmove arrives
+    },
+
+    quit: function () {
+      worker.terminate(); // the quit command is for the command line version
+    }
+
+  };
+
+  worker.onmessage = function (e) {
+
+    const line = e.data;
+
+    if (engine.onLine)
+      engine.onLine(line);
+
+    // every waiter collects every line, and the first one whose prefix
+    // matches is resolved; it's not always the oldest, e.g. isready sent
+    // during a search is answered before the search's bestmove
+
+    for (let i=0; i < waiters.length; i++)
+      waiters[i].lines.push(line);
+
+    for (let i=0; i < waiters.length; i++) {
+      if (line.startsWith(waiters[i].prefix)) {
+        const w = waiters.splice(i, 1)[0];
+        w.resolve(w.lines);
+        break;
+      }
+    }
+
+  };
+
+  return engine;
+
+}
+
+function words (line) {
+  return line.trim().split(/\s+/);
+}
+
+function lastScore (lines) {
+
+  for (let i=lines.length-1; i >= 0; i--) {
+
+    const w = words(lines[i]);
+    const j = w.indexOf('score');
+
+    if (w[0] === 'info' && j >= 0)
+      return {[w[j+1]]: parseInt(w[j+2])}; // {cp: n} or {mate: n}
+
+  }
+
+  return null;
+
+}
+
+//
+// demo
+//
+
+const ucioutput = document.getElementById('ucioutput');
+
+function show (s) {
+  ucioutput.textContent += s + '\n';
+  ucioutput.scrollTop = ucioutput.scrollHeight;
+}
+
+async function demo () {
+
+  const engine = createEngine('../lozza.js');
+
+  // uncomment to see the raw UCI traffic as well
+  // engine.onLine = function (line) { show('  < ' + line); };
+
+  const id = await engine.uci();
+  show(id[0]); // id name Lozza ...
+
+  engine.send('setoption name Hash value 32');
+  engine.send('ucinewgame');
+  await engine.isReady(); // the standard way to wait until setup is done
+  show('ready');
+
+  // a fixed depth search
+
+  engine.send('position startpos');
+  let r = await engine.go('depth 10');
+  show('depth 10 from startpos: bestmove ' + r.bestmove + ' score ' + JSON.stringify(r.score));
+
+  // play that move and search the reply
+
+  engine.send('position startpos moves ' + r.bestmove);
+  r = await engine.go('movetime 500');
+  show('reply after 500ms: bestmove ' + r.bestmove + ' score ' + JSON.stringify(r.score));
+
+  // an infinite search ended by stop; isready is answered mid-search
+
+  engine.send('position startpos');
+  const search = engine.go('infinite');
+  await engine.isReady();
+  show('readyok arrived while searching');
+  setTimeout(engine.stop, 1000);
+  r = await search;
+  show('infinite stopped after 1s: bestmove ' + r.bestmove + ' (' + r.lines.length + ' lines received)');
+
+  // no legal moves
+
+  engine.send('position fen 3R2k1/5ppp/8/8/8/8/8/6K1 b - -');
+  r = await engine.go('depth 5');
+  show('checkmated: bestmove ' + r.bestmove + ' score ' + JSON.stringify(r.score));
+
+  engine.send('position fen 7k/5Q2/6K1/8/8/8/8/8 b - -');
+  r = await engine.go('depth 5');
+  show('stalemated: bestmove ' + r.bestmove + ' score ' + JSON.stringify(r.score));
+
+  engine.quit();
+  show('done');
+
+}
+
+demo();
+
+</script>
+
+</body>
+</html>

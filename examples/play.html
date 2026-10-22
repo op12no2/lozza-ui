@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Play Lozza</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 90%;
+    margin: auto;
+    padding: 0 1em;
+  }
+  pre, code, textarea, input, select {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    align-items: center;
+    margin-bottom: 1em;
+  }
+  #game {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5em;
+    align-items: flex-start;
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: min(90vw, 240px);
+    border: 1px solid #888;
+    user-select: none;
+  }
+  .sq {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    position: relative;
+  }
+  .light { background: #eeeed2; }
+  .dark  { background: #b2c48c; }
+  .last  { box-shadow: inset 0 0 0 100px rgba(255, 220, 0, 0.35); }
+  .sel   { box-shadow: inset 0 0 0 100px rgba(0, 120, 255, 0.35); }
+  .target::after {
+    content: '';
+    position: absolute;
+    width: 28%;
+    height: 28%;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .wp { color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000; }
+  .bp { color: #000; }
+  .clock {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 16px;
+    padding: 0.2em 0.5em;
+    border: 1px solid #ccc;
+    display: inline-block;
+    min-width: 5em;
+    text-align: right;
+  }
+  .running { background: #e8f0ff; border-color: #6a9cff; }
+  #side p { margin: 0.5em 0; }
+  #status { font-weight: bold; }
+  #movelist {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+    max-width: 30em;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<h1>Play Lozza</h1>
+
+<p>A minimal game against Lozza. It shows the usual game loop: after every move the page sends the whole game as <code>position startpos moves ...</code> and asks for a move with <code>go wtime btime winc binc</code>, so Lozza manages its own time from the clocks the page keeps. There is no chess library; Lozza's own (non-standard) <code>moves</code> and <code>board</code> commands give the legal moves and the FEN to draw. Checkmate and stalemate are detected from <code>bestmove 0000</code> and its score. To keep it simple, pawns always promote to a queen, and draws by repetition, the 50 move rule or insufficient material are not declared by the page.</p>
+
+<div id="controls">
+  <label>play as
+    <select id="colour">
+      <option value="w" selected>white</option>
+      <option value="b">black</option>
+    </select>
+  </label>
+  <label>time
+    <select id="tc">
+      <option value="1+1">1+1</option>
+      <option value="3+2" selected>3+2</option>
+      <option value="5+3">5+3</option>
+      <option value="10+5">10+5</option>
+    </select>
+  </label>
+  <button id="newgame">new game</button>
+</div>
+
+<div id="game">
+  <div>
+    <p><span class="clock" id="topclock"></span> <span id="topname"></span></p>
+    <div id="board"></div>
+    <p><span class="clock" id="botclock"></span> <span id="botname"></span></p>
+  </div>
+  <div id="side">
+    <p id="status">starting...</p>
+    <div id="movelist"></div>
+  </div>
+</div>
+
+<script>
+
+// createEngine is the promise wrapper from promise.html.
+
+function createEngine (url) {
+
+  const worker  = new Worker(url);
+  const waiters = [];
+
+  const engine = {
+
+    send: function (cmd, untilPrefix) {
+      let promise = null;
+      if (untilPrefix) {
+        promise = new Promise(function (resolve) {
+          waiters.push({prefix: untilPrefix, lines: [], resolve: resolve});
+        });
+      }
+      worker.postMessage(cmd);
+      return promise;
+    },
+
+    uci:     function () { return engine.send('uci', 'uciok'); },
+    isReady: function () { return engine.send('isready', 'readyok'); },
+    stop:    function () { engine.send('stop'); },
+
+    go: function (params) {
+      return engine.send('go ' + params, 'bestmove').then(function (lines) {
+        return {bestmove: words(lines[lines.length-1])[1], lines: lines};
+      });
+    }
+
+  };
+
+  worker.onmessage = function (e) {
+    const line = e.data;
+    for (let i=0; i < waiters.length; i++)
+      waiters[i].lines.push(line);
+    for (let i=0; i < waiters.length; i++) {
+      if (line.startsWith(waiters[i].prefix)) {
+        const w = waiters.splice(i, 1)[0];
+        w.resolve(w.lines);
+        break;
+      }
+    }
+  };
+
+  return engine;
+
+}
+
+function words (line) {
+  return line.trim().split(/\s+/);
+}
+
+//
+// game state
+//
+
+const engine = createEngine('../lozza.js');
+
+const PIECES = {k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟'};
+
+let gameId    = 0;      // bumped by every new game, so stale async results can be dropped
+let you       = 'w';    // the colour you play
+let moves     = [];     // the game so far, in UCI format
+let fen       = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'; // current position, from the board command
+let legal     = [];     // legal moves in the current position, from the moves command
+let turn      = 'w';    // side to move, from the FEN
+let state     = 'idle'; // 'you', 'lozza' or 'over'
+let selected  = null;   // square of the piece you've picked up
+let clocks    = {w: 0, b: 0}; // ms left at the start of the current turn
+let inc       = 0;      // increment in ms
+let turnStart = 0;      // when the current turn started
+let searching = null;   // the pending go promise while Lozza thinks
+
+// ask Lozza for the FEN and legal moves of the current game; board and moves
+// have no end marker, so isready is sent after them and its readyok marks the
+// end of the replies
+
+async function refresh () {
+
+  engine.send('position startpos' + (moves.length ? ' moves ' + moves.join(' ') : ''));
+  engine.send('board');
+  engine.send('moves');
+
+  const lines = await engine.isReady();
+
+  fen   = lines.find(l => l.includes('/'));
+  legal = lines.filter(l => /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(l));
+  turn  = words(fen)[1];
+
+}
+
+// the side to move has no legal moves; a search reports score mate 0 if it's
+// checkmate and cp 0 if it's stalemate
+
+function noMovesResult (lines) {
+
+  if (!lines.some(l => l.startsWith('info depth 0 score mate 0')))
+    return 'stalemate, draw';
+
+  return turn === you ? 'checkmate, Lozza wins' : 'checkmate, you win';
+
+}
+
+function gameOver (msg) {
+  state    = 'over';
+  selected = null;
+  setStatus(msg);
+  render();
+}
+
+function timeLeft (side) {
+  return side === turn && (state === 'you' || state === 'lozza') ? clocks[side] - (performance.now() - turnStart) : clocks[side];
+}
+
+// end the current turn: charge the side to move for the time used and add
+// the increment; returns false if they ran out of time
+
+function endTurn () {
+
+  const left = clocks[turn] - (performance.now() - turnStart);
+
+  if (left <= 0) {
+    clocks[turn] = 0;
+    return false;
+  }
+
+  clocks[turn] = left + inc;
+
+  return true;
+
+}
+
+async function newGame () {
+
+  const id = ++gameId;
+
+  state    = 'idle';
+  selected = null;
+
+  if (searching) {
+    engine.stop();
+    await searching; // the old game's bestmove, ignored
+  }
+
+  if (id !== gameId)
+    return;
+
+  const [mins, secs] = document.getElementById('tc').value.split('+').map(Number);
+
+  you    = document.getElementById('colour').value;
+  moves  = [];
+  clocks = {w: mins * 60000, b: mins * 60000};
+  inc    = secs * 1000;
+
+  engine.send('ucinewgame');
+  await refresh();
+
+  if (id !== gameId)
+    return;
+
+  if (turn === you)
+    yourTurn();
+  else
+    lozzaTurn(id);
+
+}
+
+function yourTurn () {
+
+  state     = 'you';
+  turnStart = performance.now();
+
+  setStatus('your move');
+  render();
+
+}
+
+async function yourMove (move) {
+
+  const id = gameId;
+
+  if (!endTurn())
+    return gameOver('you lost on time');
+
+  state    = 'idle';
+  selected = null;
+
+  moves.push(move);
+  await refresh();
+
+  if (id !== gameId)
+    return;
+
+  lozzaTurn(id);
+
+}
+
+async function lozzaTurn (id) {
+
+  state     = 'lozza';
+  turnStart = performance.now();
+
+  setStatus('Lozza is thinking...');
+  render();
+
+  const w = Math.max(1, Math.round(clocks.w));
+  const b = Math.max(1, Math.round(clocks.b));
+
+  const search = engine.go('wtime ' + w + ' btime ' + b + ' winc ' + inc + ' binc ' + inc);
+  searching = search;
+
+  const r = await search;
+
+  if (searching === search)
+    searching = null;
+
+  if (id !== gameId)
+    return;
+
+  if (r.bestmove === '0000')
+    return gameOver(noMovesResult(r.lines));
+
+  if (!endTurn())
+    return gameOver('Lozza lost on time');
+
+  moves.push(r.bestmove);
+  await refresh();
+
+  if (id !== gameId)
+    return;
+
+  if (legal.length === 0) {
+    const r = await engine.go('depth 1'); // just to find out if it's mate or stalemate
+    if (id === gameId)
+      gameOver(noMovesResult(r.lines));
+    return;
+  }
+
+  yourTurn();
+
+}
+
+//
+// board
+//
+
+const boardEl = document.getElementById('board');
+
+function squareName (file, rank) {
+  return 'abcdefgh'[file] + (rank + 1);
+}
+
+// parse the piece placement field of the FEN into {square: piece letter}
+
+function placement () {
+
+  const pieces = {};
+  const rows   = words(fen)[0].split('/');
+
+  for (let r=0; r < 8; r++) {
+    let file = 0;
+    for (const ch of rows[r]) {
+      if (ch >= '1' && ch <= '8')
+        file += Number(ch);
+      else
+        pieces[squareName(file++, 7 - r)] = ch;
+    }
+  }
+
+  return pieces;
+
+}
+
+function render () {
+
+  const pieces  = placement();
+  const last    = moves.length ? moves[moves.length-1] : '';
+  const targets = selected ? legal.filter(m => m.startsWith(selected)).map(m => m.slice(2, 4)) : [];
+
+  boardEl.textContent = '';
+
+  for (let row=0; row < 8; row++) {
+    for (let col=0; col < 8; col++) {
+
+      // white at the bottom when you play white, black at the bottom otherwise
+
+      const file = you === 'w' ? col : 7 - col;
+      const rank = you === 'w' ? 7 - row : row;
+      const sq   = squareName(file, rank);
+      const p    = pieces[sq];
+
+      const el = document.createElement('div');
+
+      el.className = 'sq ' + ((file + rank) % 2 ? 'light' : 'dark');
+
+      if (last.slice(0, 2) === sq || last.slice(2, 4) === sq)
+        el.classList.add('last');
+      if (sq === selected)
+        el.classList.add('sel');
+      if (targets.includes(sq))
+        el.classList.add('target');
+
+      if (p) {
+        const white = p === p.toUpperCase();
+        const span  = document.createElement('span');
+        span.className   = white ? 'wp' : 'bp';
+        span.textContent = PIECES[p.toLowerCase()] + '︎'; // text, not emoji, style
+        el.appendChild(span);
+      }
+
+      el.onclick = function () { clickSquare(sq, p); };
+
+      boardEl.appendChild(el);
+
+    }
+  }
+
+  // clocks: Lozza at the top, you at the bottom
+
+  const them = you === 'w' ? 'b' : 'w';
+
+  document.getElementById('topname').textContent = 'Lozza';
+  document.getElementById('botname').textContent = 'you';
+  document.getElementById('topclock').classList.toggle('running', turn === them && state === 'lozza');
+  document.getElementById('botclock').classList.toggle('running', turn === you && state === 'you');
+
+  renderClocks();
+
+  // move list
+
+  let text = '';
+
+  for (let i=0; i < moves.length; i += 2)
+    text += (i / 2 + 1) + '. ' + moves[i] + (moves[i+1] ? ' ' + moves[i+1] : '') + '  ';
+
+  document.getElementById('movelist').textContent = text;
+
+}
+
+function clockText (ms) {
+
+  ms = Math.max(0, ms);
+
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor(ms / 1000) % 60;
+
+  if (ms < 10000)
+    return m + ':' + String(s).padStart(2, '0') + '.' + Math.floor(ms / 100) % 10;
+
+  return m + ':' + String(s).padStart(2, '0');
+
+}
+
+function renderClocks () {
+  const them = you === 'w' ? 'b' : 'w';
+  document.getElementById('topclock').textContent = clockText(timeLeft(them));
+  document.getElementById('botclock').textContent = clockText(timeLeft(you));
+}
+
+// click a piece of yours to pick it up, then a highlighted square to move it
+
+function clickSquare (sq, p) {
+
+  if (state !== 'you')
+    return;
+
+  if (selected) {
+    const move = legal.find(m => m.startsWith(selected + sq) && (m.length === 4 || m[4] === 'q')); // always promote to a queen
+    if (move)
+      return yourMove(move);
+  }
+
+  const mine = p && (p === p.toUpperCase()) === (you === 'w');
+
+  selected = mine && legal.some(m => m.startsWith(sq)) ? sq : null;
+
+  render();
+
+}
+
+function setStatus (msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+// tick the running clock; your flag can fall while you think, Lozza's is
+// checked when its move arrives
+
+setInterval(function () {
+
+  if (state !== 'you' && state !== 'lozza')
+    return;
+
+  renderClocks();
+
+  if (state === 'you' && timeLeft(you) <= 0) {
+    clocks[you] = 0;
+    gameOver('you lost on time');
+  }
+
+}, 100);
+
+document.getElementById('newgame').onclick = newGame;
+
+render();
+
+(async function () {
+  await engine.uci();
+  engine.send('setoption name Hash value 64');
+  await engine.isReady();
+  newGame();
+})();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stop command</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 90%;
+    margin: auto;
+    padding: 0 1em;
+  }
+  pre, code, textarea, input {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  pre {
+    background: #ffffff;
+    padding: 1em;
+    overflow-x: auto;
+  }
+  #ucioutput {
+    height: 100%;
+    overflow-y: auto;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+
+<h1>Stop command</h1>
+
+<p>Lozza runs single-threaded in a Web Worker, yet still responds to <code>stop</code> during a search. This example starts <code>go infinite</code> and sends <code>stop</code> a second later. Lozza replies with <code>bestmove</code>, then answers the <code>uci</code> command that was queued behind <code>stop</code>.</p>
+
+<p>At high depths <code>stop</code> can take a while, as it's only checked between iterative deepening iterations. For an immediate stop use <code>worker.terminate()</code> and create a new worker; the hash is lost and there's a short startup delay.</p>
+
+<pre id="ucioutput"></pre>
+
+<script>
+const lozza = new Worker('../lozza.js');
+const ucioutput = document.getElementById('ucioutput');
+
+lozza.onmessage = function(e) {
+  ucioutput.textContent += e.data + '\n'; // lozza reponds with text as per UCI
+  ucioutput.scrollTop = ucioutput.scrollHeight;
+};
+
+lozza.postMessage('uci');
+lozza.postMessage('ucinewgame');
+lozza.postMessage('position startpos');
+lozza.postMessage('go infinite');
+setTimeout(function() { // wait 1 sec
+  lozza.postMessage('stop');
+  lozza.postMessage('uci');
+}, 1000);
+
+</script>
+
+</body>
+</html>

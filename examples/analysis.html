@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi PV analysis</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 90%;
+    margin: auto;
+    padding: 0 1em;
+  }
+  pre, code, textarea, input, select {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    align-items: center;
+  }
+  #fen {
+    flex: 1 1 30em;
+    min-width: 0;
+  }
+  table {
+    margin-top: 1em;
+    border-collapse: collapse;
+    width: 100%;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.3em 0.6em;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+  }
+  td.num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  #status {
+    margin-top: 0.5em;
+    color: #666;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Multi PV analysis</h1>
+
+<p>Live analysis of a position using <code>go infinite</code> with MultiPV, parsing the engine's <code>info</code> lines as they arrive to show the best few lines. Enter a FEN or pick an example. Note that <b>stop</b> (and changing position or MultiPV) can take a while to respond at higher depths, because Lozza only checks for <code>stop</code> between iterative deepening iterations, and with MultiPV each iteration searches several lines.</p>
+
+<div id="controls">
+  <input id="fen" spellcheck="false" value="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">
+  <select id="examples">
+    <option value="" hidden>custom position</option>
+    <option value="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" selected>start position</option>
+    <option value="r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4">scholar's mate</option>
+    <option value="r2q1rk1/ppp2ppp/2np1n2/2b1p1B1/2B1P1b1/2NP1N2/PPP2PPP/R2Q1RK1 w - - 0 8">giuoco piano</option>
+    <option value="8/8/8/4k3/8/8/4PK2/8 w - - 0 1">king and pawn</option>
+    <option value="6k1/5ppp/8/8/8/8/5PPP/3R2K1 b - - 0 1">rook up, black to move</option>
+  </select>
+  <label>multi pv
+    <select id="multipv">
+      <option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option>
+    </select>
+  </label>
+  <button id="restart">restart</button>
+  <button id="stop">stop</button>
+</div>
+
+<table>
+  <thead><tr><th>#</th><th>depth</th><th>score</th><th>line</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<div id="status">starting...</div>
+
+<script>
+
+// Live analysis with MultiPV. The engine is driven with go infinite and its
+// info lines are parsed as they arrive. With MultiPV n, each iteration ends
+// with n info lines tagged multipv 1..n, best first; each row of the table
+// shows the latest line for one multipv index. Scores in UCI are from the
+// side to move's point of view; they are shown here from White's. At high
+// depths the search can take a while to stop.
+//
+// createEngine is the promise wrapper from promise.html.
+
+function createEngine (url) {
+
+  const worker  = new Worker(url);
+  const waiters = [];
+
+  const engine = {
+
+    onLine: null,
+
+    send: function (cmd, untilPrefix) {
+      let promise = null;
+      if (untilPrefix) {
+        promise = new Promise(function (resolve) {
+          waiters.push({prefix: untilPrefix, lines: [], resolve: resolve});
+        });
+      }
+      worker.postMessage(cmd);
+      return promise;
+    },
+
+    uci:     function () { return engine.send('uci', 'uciok'); },
+    isReady: function () { return engine.send('isready', 'readyok'); },
+    stop:    function () { engine.send('stop'); },
+
+    go: function (params) {
+      return engine.send('go ' + params, 'bestmove').then(function (lines) {
+        return {bestmove: words(lines[lines.length-1])[1], lines: lines};
+      });
+    }
+
+  };
+
+  worker.onmessage = function (e) {
+    const line = e.data;
+    if (engine.onLine)
+      engine.onLine(line);
+    for (let i=0; i < waiters.length; i++)
+      waiters[i].lines.push(line);
+    for (let i=0; i < waiters.length; i++) {
+      if (line.startsWith(waiters[i].prefix)) {
+        const w = waiters.splice(i, 1)[0];
+        w.resolve(w.lines);
+        break;
+      }
+    }
+  };
+
+  return engine;
+
+}
+
+function words (line) {
+  return line.trim().split(/\s+/);
+}
+
+// parse an info line into {multipv, depth, cp or mate, bound, nodes, nps, pv}
+
+function parseInfo (line) {
+
+  const w    = words(line);
+  const info = {multipv: 1, pv: []};
+
+  for (let i=1; i < w.length; i++) {
+    switch (w[i]) {
+      case 'depth':   info.depth   = parseInt(w[++i]); break;
+      case 'multipv': info.multipv = parseInt(w[++i]); break;
+      case 'nodes':   info.nodes   = parseInt(w[++i]); break;
+      case 'nps':     info.nps     = parseInt(w[++i]); break;
+      case 'time':    info.time    = parseInt(w[++i]); break;
+      case 'score':
+        info[w[i+1]] = parseInt(w[i+2]); // cp or mate
+        i += 2;
+        if (w[i+1] === 'lowerbound' || w[i+1] === 'upperbound')
+          info.bound = w[++i];
+        break;
+      case 'pv':
+        info.pv = w.slice(i+1);
+        i = w.length;
+        break;
+    }
+  }
+
+  return info;
+
+}
+
+//
+// page
+//
+
+const fenBox   = document.getElementById('fen');
+const multiPVBox = document.getElementById('multipv');
+const exampleBox = document.getElementById('examples');
+const rowsEl   = document.getElementById('rows');
+const statusEl = document.getElementById('status');
+
+const engine = createEngine('../lozza.js');
+
+let rows      = [];    // rows[multipv-1] = latest parsed info for that line
+let flip      = 1;     // -1 when black is to move, to show scores from White's view
+let searching = null;  // the pending go promise while a search runs
+
+engine.onLine = function (line) {
+
+  if (!line.startsWith('info') || line.indexOf(' score ') < 0)
+    return;
+
+  const info = parseInfo(line);
+
+  if (info.bound)
+    return; // aspiration window results, the exact line follows
+
+  if (info.depth === 0)
+    return; // no legal moves, handled when the search ends
+
+  rows[info.multipv-1] = info;
+
+  statusEl.textContent = 'depth ' + info.depth + '  nodes ' + info.nodes.toLocaleString() + '  nps ' + info.nps.toLocaleString();
+
+  render();
+
+};
+
+function scoreText (info) {
+
+  if (info.mate !== undefined)
+    return '#' + (flip * info.mate);
+
+  const cp = flip * info.cp;
+  return (cp > 0 ? '+' : '') + (cp / 100).toFixed(2);
+
+}
+
+function render () {
+
+  rowsEl.textContent = '';
+
+  for (let i=0; i < rows.length; i++) {
+
+    const info = rows[i];
+
+    if (!info)
+      continue;
+
+    const tr = document.createElement('tr');
+
+    for (const [text, cls] of [[i+1, 'num'], [info.depth, 'num'], [scoreText(info), 'num'], [info.pv.join(' '), '']]) {
+      const td = document.createElement('td');
+      td.textContent = text;
+      td.className = cls;
+      tr.appendChild(td);
+    }
+
+    rowsEl.appendChild(tr);
+
+  }
+
+}
+
+async function stop () {
+
+  if (!searching)
+    return;
+
+  engine.stop();
+  const r = await searching; // resolves when bestmove arrives
+  searching = null;
+
+  return r;
+
+}
+
+async function analyse () {
+
+  await stop();
+
+  const fen = fenBox.value.trim();
+
+  // show the matching example, or 'custom position' for a typed FEN
+
+  exampleBox.value = [...exampleBox.options].some(o => o.value === fen) ? fen : '';
+
+  flip = words(fen)[1] === 'b' ? -1 : 1;
+  rows = [];
+  render();
+
+  engine.send('setoption name MultiPV value ' + multiPVBox.value);
+  engine.send('position fen ' + fen);
+
+  statusEl.textContent = 'searching...';
+
+  const search = engine.go('infinite');
+  searching = search;
+
+  const r = await search;
+
+  if (r.bestmove === '0000') {
+    // no legal moves; the engine reports score mate 0 (checkmate) or cp 0 (stalemate)
+    const mated = r.lines.some(l => l.startsWith('info depth 0 score mate 0'));
+    statusEl.textContent = mated ? 'checkmate' : 'stalemate';
+  }
+  else {
+    statusEl.textContent += '  (stopped, bestmove ' + r.bestmove + ')';
+  }
+
+  if (searching === search)
+    searching = null;
+
+}
+
+document.getElementById('restart').onclick = analyse;
+document.getElementById('stop').onclick    = stop;
+multiPVBox.onchange = analyse;
+
+exampleBox.onchange = function () {
+  fenBox.value = this.value;
+  analyse();
+};
+
+fenBox.onkeydown = function (e) {
+  if (e.key === 'Enter')
+    analyse();
+};
+
+(async function () {
+  await engine.uci();
+  engine.send('setoption name Hash value 64');
+  await engine.isReady();
+  analyse();
+})();
+
+</script>
+
+</body>
+</html>
