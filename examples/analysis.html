@@ -42,6 +42,10 @@
     text-align: right;
     white-space: nowrap;
   }
+  th:nth-child(-n+3), td:nth-child(-n+3) {
+    width: 1%;              /* the #, depth and score columns stay at their content's width while the line column grows */
+    white-space: nowrap;
+  }
   #status {
     margin-top: 0.5em;
     color: #666;
