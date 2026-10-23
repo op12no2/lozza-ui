@@ -476,6 +476,14 @@ for (let a=0; a < 64; a++)
   for (let s=0; s < 64; s++)
     dist[a * 64 + s] = Math.max(Math.abs((a & 7) - (s & 7)), Math.abs((a >>> 3) - (s >>> 3)));
 
+// the king zone: a king's square and its neighbours, king_zone[ksq * 64 + sq]
+
+const king_zone = new Uint8Array(64 * 64);
+
+for (let k=0; k < 64; k++)
+  for (let s=0; s < 64; s++)
+    king_zone[k * 64 + s] = dist[k * 64 + s] <= 1 ? 1 : 0;
+
 //
 // isattacked
 //
@@ -871,6 +879,7 @@ const SEE_VALUE = [0, 100, 300, 300, 500, 900, 10000];
 
 const see_gain = new Int32Array(32);
 const see_gone = new Int32Array(64);
+const see_first = new Int8Array(8);  // the first piece on each ray from the target
 
 let see_stamp = 0;
 let see_sq    = 0;
@@ -898,30 +907,46 @@ function see_attacker(b, sq, colour) {
       return KNIGHT;
     }
 
-  // the first piece still there on each ray: a bishop on a diagonal, a rook on a line, a
-  // queen on either
+  // the first piece still there on each ray, then the cheapest slider among them: a bishop
+  // on a diagonal, a rook on a line, a queen on either
 
-  for (let ptype=BISHOP; ptype <= QUEEN; ptype++) {
-    const d0 = ptype === BISHOP ? 4 : 0;
-    const d1 = ptype === ROOK   ? 4 : 8;
-    const wanted = ptype | colour;
-    for (let dir=d0; dir < d1; dir++) {
-      const ray = rays[sq * 8 + dir];
-      for (let i=0; i < ray.length; i++) {
-        const s = ray[i];
-        if (see_gone[s] === see_stamp)
-          continue;
-        const piece = b[s];
-        if (piece === 0)
-          continue;
-        if (piece === wanted) {
-          see_sq = s;
-          return ptype;
-        }
+  for (let dir=0; dir < 8; dir++) {
+    const ray = rays[sq * 8 + dir];
+    see_first[dir] = -1;
+    for (let i=0; i < ray.length; i++) {
+      const s = ray[i];
+      if (see_gone[s] === see_stamp)
+        continue;
+      if (b[s] !== 0) {
+        see_first[dir] = s;
         break;
       }
     }
   }
+
+  const bishop = BISHOP | colour;
+
+  for (let dir=4; dir < 8; dir++)
+    if (see_first[dir] >= 0 && b[see_first[dir]] === bishop) {
+      see_sq = see_first[dir];
+      return BISHOP;
+    }
+
+  const rook = ROOK | colour;
+
+  for (let dir=0; dir < 4; dir++)
+    if (see_first[dir] >= 0 && b[see_first[dir]] === rook) {
+      see_sq = see_first[dir];
+      return ROOK;
+    }
+
+  const queen = QUEEN | colour;
+
+  for (let dir=0; dir < 8; dir++)
+    if (see_first[dir] >= 0 && b[see_first[dir]] === queen) {
+      see_sq = see_first[dir];
+      return QUEEN;
+    }
 
   const king = KING | colour;
   const kg   = king_to[sq];
@@ -1492,7 +1517,12 @@ const KS_UNIT = [0, 0, 3, 1, 5, 5, 0];
 // filled by the pawn and piece passes in evaluate and read by the terms; and per colour and
 // file the number of pawns and the ranks of the lowest and highest, for the pawn terms
 
+const squares    = new Uint8Array(32);  // the occupied squares, listed once per evaluate for the passes
+let   num_squares = 0;
 const att        = [new Uint8Array(64), new Uint8Array(64)];
+const area       = [new Uint8Array(64), new Uint8Array(64)];  // the mobility area per colour: no own piece, no enemy pawn attack
+const ks_open    = new Int32Array(2);   // open files on and beside the king, per colour
+const ks_kfile   = new Int32Array(2);   // the king's own file open
 const pawn_count = [new Uint8Array(8), new Uint8Array(8)];
 const pawn_low   = [new Int8Array(8), new Int8Array(8)];
 const pawn_high  = [new Int8Array(8), new Int8Array(8)];
@@ -1505,13 +1535,6 @@ let   push_stamp = 0;
 const MOB_MG = [null, null, KNIGHT_MOB_MG, BISHOP_MOB_MG, ROOK_MOB_MG, QUEEN_MOB_MG];
 const MOB_EG = [null, null, KNIGHT_MOB_EG, BISHOP_MOB_EG, ROOK_MOB_EG, QUEEN_MOB_EG];
 const F_MOB  = [0, 0, F_MOB_KNIGHT, F_MOB_BISHOP, F_MOB_ROOK, F_MOB_QUEEN];
-
-// popcount with a 64K byte table, faster than swar in JS
-
-const POP16 = new Uint8Array(65536);
-
-for (let i=1; i < 65536; i++)
-  POP16[i] = (i & 1) + POP16[i >>> 1];
 
 const trace = new Int16Array(NUM_FEATURES);
 
@@ -1528,9 +1551,11 @@ let trace_class = 0;
 // is the bishop of this piece code on a light square (rank + file odd)
 
 function bishop_on_light(b, bishop) {
-  for (let sq=0; sq < 64; sq++)
+  for (let i=0; i < num_squares; i++) {
+    const sq = squares[i];
     if (b[sq] === bishop)
       return (((sq >>> 3) + (sq & 7)) & 1) === 1;
+  }
   return false;
 }
 
@@ -1586,31 +1611,26 @@ const ec_lo   = new Int32Array(EVAL_CACHE_SIZE);
 const ec_hi   = new Int32Array(EVAL_CACHE_SIZE);
 const ec_eval = new Int32Array(EVAL_CACHE_SIZE);
 
-function evaluate(ply) {
+// the eval is a list of passes over the board: the occupied squares are listed, the pawn pass
+// fills the pawn tables and the pawns' attack bits, and each term function adds white minus
+// black to ev_mg / ev_eg
 
-  const pos = nodes[ply].pos;
-  const b   = nodes[ply].board;
+let ev_mg = 0;
+let ev_eg = 0;
 
-  const ec = pos[P_LO] & EVAL_CACHE_MASK;
+function list_squares(b) {
 
-  if (!TRACE && ec_lo[ec] === pos[P_LO] && ec_hi[ec] === pos[P_HI])
-    return ec_eval[ec];
+  // the pieces on the board, listed once for the passes below
 
-  // the piece square sums and phase are kept up to date by put_piece and remove_piece
+  num_squares = 0;
 
-  let mg    = pos[P_MG];
-  let eg    = pos[P_EG];
-  let phase = pos[P_PHASE];
+  for (let sq=0; sq < 64; sq++)
+    if (b[sq] !== 0)
+      squares[num_squares++] = sq;
 
-  if (TRACE) {
-    for (let sq=0; sq < 64; sq++) {
-      const piece = b[sq];
-      if (piece !== 0) {
-        const black = piece & BLACK;
-        trace[F_PST + ((piece & 7) - 1) * 64 + (black ? sq : sq ^ 56)] += black ? -1 : 1;
-      }
-    }
-  }
+}
+
+function pawn_pass(b) {
 
   // the pawn pass: per colour and file the number of own pawns and the ranks of the lowest and
   // highest, and the squares each pawn attacks as the pawn bit of att[]
@@ -1624,8 +1644,9 @@ function evaluate(ply) {
     pawn_high[c].fill(-1);
   }
 
-  for (let sq=0; sq < 64; sq++) {
+  for (let i=0; i < num_squares; i++) {
 
+    const sq    = squares[i];
     const piece = b[sq];
 
     if ((piece & 7) !== PAWN)
@@ -1648,6 +1669,13 @@ function evaluate(ply) {
       att[c][targets[i]] |= 1 << PAWN;
 
   }
+
+}
+
+function pawn_terms(pos, b) {
+
+  let mg = 0;
+  let eg = 0;
 
   // pawn structure and passed pawns, ranks from the pawn's side: isolated, backward, doubled,
   // and connected pawns as supported and phalanx (the idea of stockfish's connected pawns),
@@ -1673,7 +1701,9 @@ function evaluate(ply) {
     let pm = 0;
     let pe = 0;
 
-    for (let sq=0; sq < 64; sq++) {
+    for (let i=0; i < num_squares; i++) {
+
+      const sq = squares[i];
 
       if (b[sq] !== pawn)
         continue;
@@ -1784,13 +1814,18 @@ function evaluate(ply) {
 
   }
 
+  ev_mg += mg;
+  ev_eg += eg;
+
+}
+
+function king_exposure(pos) {
+
+  let mg = 0;
+  let eg = 0;
+
   // king exposure per side: open files (no own pawns) on and beside the king's file, and
   // whether the king's own file is open
-
-  let open_w  = 0;
-  let open_b  = 0;
-  let kfile_w = 0;
-  let kfile_b = 0;
 
   for (let c=0; c < 2; c++) {
 
@@ -1798,24 +1833,19 @@ function evaluate(ply) {
 
     let open = 0;
 
+    ks_kfile[c] = 0;
+
     for (let f=kf-1; f <= kf+1; f++) {
       if (f < 0 || f > 7)
         continue;
       if (pawn_count[c][f] === 0) {
         open++;
-        if (f === kf) {
-          if (c)
-            kfile_b = 1;
-          else
-            kfile_w = 1;
-        }
+        if (f === kf)
+          ks_kfile[c] = 1;
       }
     }
 
-    if (c)
-      open_b = open;
-    else
-      open_w = open;
+    ks_open[c] = open;
 
     // a king on a flank (files a-d, c-f or e-h by its file) with no pawns of either colour
     // (the idea of stockfish's pawnless flank, distilled from lozza 11's net)
@@ -1841,16 +1871,32 @@ function evaluate(ply) {
     }
   }
 
+
+  ev_mg += mg;
+  ev_eg += eg;
+}
+
+function piece_terms(pos, b) {
+
+  let mg = 0;
+  let eg = 0;
+
   // the piece pass: each piece's attacks go into att[] by type (sliders stop at the first
-  // piece, which is attacked), and are counted for safe mobility, the squares holding no own
-  // piece and not attacked by an enemy pawn, scored by count (the idea of stockfish's mobility
-  // area). pieces attacking the enemy king zone are counted for king safety, based on fruit
+  // piece, which is attacked), and are counted for safe mobility, the squares of the side's
+  // area, those holding no own piece and not attacked by an enemy pawn, scored by count (the
+  // idea of stockfish's mobility area). pieces attacking the enemy king zone are counted for king safety, based on fruit
   // 2.1's king attack (via lozza 2.5): they give an attack value weighted by a tuned table
   // indexed by the number of attackers (the non-linearity), attackers count more against open
   // files, and own king exposure counts against us, more so while the enemy has a queen. the
   // products (attackers x open files, exposure x enemy queen) and the king on an open file
   // were distilled from lozza 11's net: its pairwise discovery ranked them top of what our
   // eval lacked. rooks on open or half open files and minors behind pawns are scored on the way
+
+  for (let sq=0; sq < 64; sq++) {
+    const piece = b[sq];
+    area[WHITE_INDEX][sq] = (piece === 0 || (piece & BLACK) !== WHITE) && (att[BLACK_INDEX][sq] & (1 << PAWN)) === 0 ? 1 : 0;
+    area[BLACK_INDEX][sq] = (piece === 0 || (piece & BLACK) !== BLACK) && (att[WHITE_INDEX][sq] & (1 << PAWN)) === 0 ? 1 : 0;
+  }
 
   for (let c=0; c < 2; c++) {
 
@@ -1865,11 +1911,15 @@ function evaluate(ply) {
     let attackers = 0;
     let attack    = 0;
 
-    for (let sq=0; sq < 64; sq++) {
+    const att_c  = att[c];
+    const area_c = area[c];
 
+    for (let i=0; i < num_squares; i++) {
+
+      const sq    = squares[i];
       const piece = b[sq];
 
-      if (piece === 0 || (piece & BLACK) !== colour)
+      if ((piece & BLACK) !== colour)
         continue;
 
       const ptype = piece & 7;
@@ -1881,8 +1931,8 @@ function evaluate(ply) {
 
       if (ptype === KING) {
         const targets = king_to[sq];
-        for (let i=0; i < targets.length; i++)
-          att[c][targets[i]] |= bit;
+        for (let j=0; j < targets.length; j++)
+          att_c[targets[j]] |= bit;
         continue;
       }
 
@@ -1891,14 +1941,11 @@ function evaluate(ply) {
 
       if (ptype === KNIGHT) {
         const targets = knight_to[sq];
-        for (let i=0; i < targets.length; i++) {
-          const t = targets[i];
-          att[c][t] |= bit;
-          const on_t = b[t];
-          if ((on_t === 0 || (on_t & BLACK) !== colour) && (att[e][t] & (1 << PAWN)) === 0)
-            n++;
-          if (dist[kz + t] <= 1)
-            zone = 1;
+        for (let j=0; j < targets.length; j++) {
+          const t = targets[j];
+          att_c[t] |= bit;
+          n    += area_c[t];
+          zone |= king_zone[kz + t];
         }
       }
       else {
@@ -1906,15 +1953,12 @@ function evaluate(ply) {
         const d1 = ptype === ROOK   ? 4 : 8;
         for (let dir=d0; dir < d1; dir++) {
           const ray = rays[sq * 8 + dir];
-          for (let i=0; i < ray.length; i++) {
-            const t = ray[i];
-            att[c][t] |= bit;
-            const on_t = b[t];
-            if ((on_t === 0 || (on_t & BLACK) !== colour) && (att[e][t] & (1 << PAWN)) === 0)
-              n++;
-            if (dist[kz + t] <= 1)
-              zone = 1;
-            if (on_t !== 0)
+          for (let j=0; j < ray.length; j++) {
+            const t = ray[j];
+            att_c[t] |= bit;
+            n    += area_c[t];
+            zone |= king_zone[kz + t];
+            if (b[t] !== 0)
               break;
           }
         }
@@ -1957,10 +2001,10 @@ function evaluate(ply) {
 
     const at = attackers < 7 ? attackers : 7;
 
-    const own_open  = c ? open_b : open_w;
-    const own_kfile = c ? kfile_b : kfile_w;
+    const own_open  = ks_open[c];
+    const own_kfile = ks_kfile[c];
     const enemy_q   = ((pos[P_MAT] >>> MAT_SHIFT[QUEEN | (colour ^ BLACK)]) & 7) !== 0 ? 1 : 0;
-    const att_open  = attackers * (c ? open_w : open_b);
+    const att_open  = attackers * ks_open[e];
 
     mob_mg += KS_ATTACK_MG[at] * attack + KS_ATT_OPEN_MG[0] * att_open +
               KS_OPEN_MG[0] * own_open + KS_OPEN_Q_MG[0] * own_open * enemy_q + KS_KFILE_MG[0] * own_kfile;
@@ -1986,14 +2030,15 @@ function evaluate(ply) {
     }
   }
 
-  // material imbalance, quadratic in piece counts: for each pair of piece types a weight on
-  // our count x our count and on our count x their count (the idea of stockfish's material
-  // imbalance, our own weights; the need for it was distilled from lozza 11's net, which valued
-  // queen imbalances two pawns differently from us); a type with itself counts pairs, n (n - 1) / 2, which is 0
-  // for one piece so it can't trade value with the piece value itself (and bishop x bishop
-  // is the bishop pair); the result (imb_mg, imb_eg) is in sixteenths of a centipawn
+  ev_mg += mg;
+  ev_eg += eg;
 
-  imbalance(pos);
+}
+
+function threat_terms(b) {
+
+  let mg = 0;
+  let eg = 0;
 
   // threats (the idea of stockfish's threats, distilled from lozza 11's net): our pawns
   // attacking their pieces, our minors attacking their rooks and queens, their pieces we attack
@@ -2015,20 +2060,23 @@ function evaluate(ply) {
 
     push_stamp++;
 
-    for (let sq=0; sq < 64; sq++) {
+    for (let i=0; i < num_squares; i++) {
 
+      const sq    = squares[i];
       const piece = b[sq];
-
-      if (piece === 0)
-        continue;
 
       if ((piece & BLACK) === colour) {
         if ((piece & 7) === PAWN) {
           const to = c ? sq - 8 : sq + 8;
           if (b[to] === 0 && (att[e][to] & (1 << PAWN)) === 0 && (att[c][to] !== 0 || att[e][to] === 0)) {
             const targets = pawn_to[c][to];
-            for (let i=0; i < targets.length; i++)
-              push_att[targets[i]] = push_stamp;
+            for (let j=0; j < targets.length; j++) {
+              const t  = targets[j];
+              const on = b[t];
+              if (push_att[t] !== push_stamp && on !== 0 && (on & BLACK) === them && (on & 7) !== PAWN && (on & 7) !== KING)
+                push++;
+              push_att[t] = push_stamp;
+            }
           }
         }
         continue;
@@ -2045,12 +2093,6 @@ function evaluate(ply) {
         minor++;
       if (att[c][sq] !== 0 && att[e][sq] === 0)
         hang++;
-    }
-
-    for (let sq=0; sq < 64; sq++) {
-      const piece = b[sq];
-      if (push_att[sq] === push_stamp && piece !== 0 && (piece & BLACK) === them && (piece & 7) !== PAWN && (piece & 7) !== KING)
-        push++;
     }
 
     const t_mg = THREAT_PAWN_MG[0] * pawn + THREAT_MINOR_MG[0] * minor + THREAT_HANG_MG[0] * hang + THREAT_PUSH_MG[0] * push;
@@ -2074,6 +2116,16 @@ function evaluate(ply) {
     }
   }
 
+  ev_mg += mg;
+  ev_eg += eg;
+
+}
+
+function queen_terms(pos, b) {
+
+  let mg = 0;
+  let eg = 0;
+
   // the queen against the enemy king: safe checks (squares from which our queen would check
   // their king, that it attacks, that hold no own piece and that they do not attack; worth
   // more when it is our move to give them: distilled from lozza 11's net, a safe check counts
@@ -2092,7 +2144,8 @@ function evaluate(ply) {
     let qd_mg  = 0;
     let qd_eg  = 0;
 
-    for (let sq=0; sq < 64; sq++) {
+    for (let i=0; i < num_squares; i++) {
+      const sq = squares[i];
       if (b[sq] === queen) {
         queens++;
         const d = dist[sq * 64 + ek];
@@ -2133,6 +2186,9 @@ function evaluate(ply) {
       }
     }
 
+    if (queens === 0)
+      continue;
+
     // the check squares are the rays from their king out to the first piece, which counts
     // when it is one of theirs
 
@@ -2166,6 +2222,62 @@ function evaluate(ply) {
         trace[F_KS_QCHECK + k] += c ? -n : n;
     }
   }
+
+  ev_mg += mg;
+  ev_eg += eg;
+
+}
+
+function evaluate(ply) {
+
+  const pos = nodes[ply].pos;
+  const b   = nodes[ply].board;
+
+  const ec = pos[P_LO] & EVAL_CACHE_MASK;
+
+  if (!TRACE && ec_lo[ec] === pos[P_LO] && ec_hi[ec] === pos[P_HI])
+    return ec_eval[ec];
+
+  // the piece square sums and phase are kept up to date by put_piece and remove_piece
+
+  let mg    = pos[P_MG];
+  let eg    = pos[P_EG];
+  let phase = pos[P_PHASE];
+
+  if (TRACE) {
+    for (let sq=0; sq < 64; sq++) {
+      const piece = b[sq];
+      if (piece !== 0) {
+        const black = piece & BLACK;
+        trace[F_PST + ((piece & 7) - 1) * 64 + (black ? sq : sq ^ 56)] += black ? -1 : 1;
+      }
+    }
+  }
+
+  list_squares(b);
+  pawn_pass(b);
+
+  ev_mg = 0;
+  ev_eg = 0;
+
+  pawn_terms(pos, b);
+  king_exposure(pos);
+  piece_terms(pos, b);
+
+  // material imbalance, quadratic in piece counts: for each pair of piece types a weight on
+  // our count x our count and on our count x their count (the idea of stockfish's material
+  // imbalance, our own weights; the need for it was distilled from lozza 11's net, which valued
+  // queen imbalances two pawns differently from us); a type with itself counts pairs, n (n - 1) / 2, which is 0
+  // for one piece so it can't trade value with the piece value itself (and bishop x bishop
+  // is the bishop pair); the result (imb_mg, imb_eg) is in sixteenths of a centipawn
+
+  imbalance(pos);
+
+  threat_terms(b);
+  queen_terms(pos, b);
+
+  mg += ev_mg;
+  eg += ev_eg;
 
   if (phase > MAX_PHASE)
     phase = MAX_PHASE;

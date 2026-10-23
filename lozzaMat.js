@@ -476,6 +476,14 @@ for (let a=0; a < 64; a++)
   for (let s=0; s < 64; s++)
     dist[a * 64 + s] = Math.max(Math.abs((a & 7) - (s & 7)), Math.abs((a >>> 3) - (s >>> 3)));
 
+// the king zone: a king's square and its neighbours, king_zone[ksq * 64 + sq]
+
+const king_zone = new Uint8Array(64 * 64);
+
+for (let k=0; k < 64; k++)
+  for (let s=0; s < 64; s++)
+    king_zone[k * 64 + s] = dist[k * 64 + s] <= 1 ? 1 : 0;
+
 //
 // isattacked
 //
@@ -871,6 +879,7 @@ const SEE_VALUE = [0, 100, 300, 300, 500, 900, 10000];
 
 const see_gain = new Int32Array(32);
 const see_gone = new Int32Array(64);
+const see_first = new Int8Array(8);  // the first piece on each ray from the target
 
 let see_stamp = 0;
 let see_sq    = 0;
@@ -898,30 +907,46 @@ function see_attacker(b, sq, colour) {
       return KNIGHT;
     }
 
-  // the first piece still there on each ray: a bishop on a diagonal, a rook on a line, a
-  // queen on either
+  // the first piece still there on each ray, then the cheapest slider among them: a bishop
+  // on a diagonal, a rook on a line, a queen on either
 
-  for (let ptype=BISHOP; ptype <= QUEEN; ptype++) {
-    const d0 = ptype === BISHOP ? 4 : 0;
-    const d1 = ptype === ROOK   ? 4 : 8;
-    const wanted = ptype | colour;
-    for (let dir=d0; dir < d1; dir++) {
-      const ray = rays[sq * 8 + dir];
-      for (let i=0; i < ray.length; i++) {
-        const s = ray[i];
-        if (see_gone[s] === see_stamp)
-          continue;
-        const piece = b[s];
-        if (piece === 0)
-          continue;
-        if (piece === wanted) {
-          see_sq = s;
-          return ptype;
-        }
+  for (let dir=0; dir < 8; dir++) {
+    const ray = rays[sq * 8 + dir];
+    see_first[dir] = -1;
+    for (let i=0; i < ray.length; i++) {
+      const s = ray[i];
+      if (see_gone[s] === see_stamp)
+        continue;
+      if (b[s] !== 0) {
+        see_first[dir] = s;
         break;
       }
     }
   }
+
+  const bishop = BISHOP | colour;
+
+  for (let dir=4; dir < 8; dir++)
+    if (see_first[dir] >= 0 && b[see_first[dir]] === bishop) {
+      see_sq = see_first[dir];
+      return BISHOP;
+    }
+
+  const rook = ROOK | colour;
+
+  for (let dir=0; dir < 4; dir++)
+    if (see_first[dir] >= 0 && b[see_first[dir]] === rook) {
+      see_sq = see_first[dir];
+      return ROOK;
+    }
+
+  const queen = QUEEN | colour;
+
+  for (let dir=0; dir < 8; dir++)
+    if (see_first[dir] >= 0 && b[see_first[dir]] === queen) {
+      see_sq = see_first[dir];
+      return QUEEN;
+    }
 
   const king = KING | colour;
   const kg   = king_to[sq];
