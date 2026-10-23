@@ -1,4 +1,13 @@
 
+// lozzaNNUE.js: lozza.js with a neural network in place of the hand-crafted evaluation, built by
+// bin/nnue.py. the net is (768 -> 256) x 2 -> 1: one weight row per piece and square, two
+// accumulators of 256 (one from each side), unclipped squared relu (int32 accumulators), and one
+// output weight per hidden unit per side; Lozza experimental's net (2026), trained with bullet
+// on Lozza's own games. bullet's quantisation: QA 255, QB 64, output scale 400. the first layer
+// travels packed at 8 bits per weight with a scale per hidden unit (194 KB, base64 at the end of
+// the file) and is unpacked into the tables when the engine loads; the search and everything
+// else is lozza.js as it is
+//
 const VER = "12.0";
 
 const TRACE = false;
