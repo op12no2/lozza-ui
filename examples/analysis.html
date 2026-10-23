@@ -191,7 +191,7 @@ const exampleBox = document.getElementById('examples');
 const rowsEl   = document.getElementById('rows');
 const statusEl = document.getElementById('status');
 
-const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaPST|lozzaBeal
+const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaMat|lozzaBeal
 document.getElementById('engine').textContent = engineFile + '.js';
 const engine = createEngine('../' + engineFile + '.js');
 

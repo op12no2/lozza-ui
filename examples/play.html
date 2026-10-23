@@ -176,7 +176,7 @@ function words (line) {
 // game state
 //
 
-const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaPST|lozzaBeal
+const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaMat|lozzaBeal
 document.getElementById('engine').textContent = engineFile + '.js';
 const engine = createEngine('../' + engineFile + '.js');
 

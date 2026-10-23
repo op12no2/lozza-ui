@@ -1628,202 +1628,39 @@ function get_move(ply) {
 // eval
 //
 
-// material + piece square tables, tapered between middlegame and endgame by phase: the whole eval
-// tables are from white's point of view, laid out as seen with rank 8 at the top
+// material only: Larry Kaufman's piece values, 100 325 325 500 975 and 50 for the bishop pair,
+// no tables and no phase. the values sit in the piece square tables as flat entries, so
+// put_piece and remove_piece keep the material balance in P_MG; the pair comes off the
+// material key
 
-const PIECE_VALUE_MG = [0, 83, 284, 318, 406, 890, 0];
-const PIECE_VALUE_EG = [0, 154, 325, 349, 614, 1109, 0];
-const PHASE          = new Uint8Array([0, 0, 1, 1, 2, 4, 0, 0]);
-const MAX_PHASE      = 24;
+const PHASE     = new Uint8Array([0, 0, 1, 1, 2, 4, 0, 0]);
+const MAX_PHASE = 24;
 
-const PAWN_MG = [
-    0,  0,  0,  0,  0,  0,  0,  0,
-   54, 85, 58, 87, 74, 61,-11,-40,
-  -23, -8, 24, 31, 35, 56, 34, -8,
-  -37,-12, -9, -6, 14,  6, 10,-16,
-  -48,-20,-21, -5, -4,-12, -3,-28,
-  -49,-24,-24,-23, -9,-18, 12,-20,
-  -50,-23,-29,-39,-20, -2, 20,-28,
-    0,  0,  0,  0,  0,  0,  0,  0
-];
-
-const PAWN_EG = [
-    0,  0,  0,  0,  0,  0,  0,  0,
-  132,122,119, 76, 71, 79,124,142,
-   66, 74, 42, 20, 12, -1, 44, 43,
-   -1,-13,-31,-40,-49,-46,-28,-26,
-  -26,-29,-46,-50,-51,-50,-39,-45,
-  -32,-31,-48,-36,-43,-46,-41,-50,
-  -27,-27,-39,-32,-28,-40,-41,-48,
-    0,  0,  0,  0,  0,  0,  0,  0
-];
-
-const KNIGHT_MG = [
-  -151,-105,-50,-17, 23,-49,-85,-92,
-  -19,  2, 34, 45, 28, 94,  9, 24,
-   -1, 38, 53, 67,103,107, 61, 30,
-   -2, 13, 36, 58, 39, 66, 23, 32,
-  -14,  2, 15, 17, 26, 21, 19, -5,
-  -32,-10,  4,  6, 18,  8, 11,-20,
-  -44,-33,-18, -6, -5, -2,-17,-19,
-  -92,-34,-51,-34,-30,-18,-30,-57
-];
-
-const KNIGHT_EG = [
-  -66,-15,  1,-10, -9,-26,-18,-95,
-  -20,  0,  4,  8,  1,-19, -9,-38,
-   -7,  7, 25, 24,  8,  5, -1,-19,
-    3, 25, 37, 38, 40, 32, 25, -3,
-    6, 13, 38, 40, 40, 32, 17, -1,
-  -10, 10, 18, 32, 30, 14,  3, -5,
-  -21, -3,  8, 10, 10,  4,-12,-10,
-  -23,-40, -8, -5, -4,-14,-34,-39
-];
-
-const BISHOP_MG = [
-  -24,-38,-43,-75,-65,-45,-15,-40,
-  -12, 14,  4,-12, 21, 21, 11, -7,
-   -3, 24, 24, 47, 33, 64, 42, 27,
-  -10,  4, 27, 38, 34, 30,  6, -8,
-  -15,  0,  4, 24, 22,  6, -1, -7,
-   -5,  3,  2,  5,  7,  2,  4,  7,
-   -1,  0,  9,-11, -4,  8, 15,  2,
-  -25, -5,-20,-29,-23,-25, -2,-16
-];
-
-const BISHOP_EG = [
-  -13, -3,  1, 13,  7, -3,-10,-15,
-  -20, -3,  2,  3, -4, -7,  0,-21,
-    6,  0, 11,  0,  5,  6,  0,  0,
-    3, 18, 12, 23, 18, 16, 14,  3,
-   -2, 14, 22, 20, 18, 17, 11,-11,
-   -3,  7, 15, 15, 19, 14, -1,-11,
-   -9, -8, -9,  6,  8, -5, -3,-27,
-  -25, -7,-26, -4, -9, -9,-22,-33
-];
-
-const ROOK_MG = [
-   29, 20, 26, 37, 52, 57, 46, 62,
-   10, 11, 31, 52, 40, 67, 48, 78,
-  -10, 10, 13, 16, 42, 45, 79, 57,
-  -27,-13, -9,  0,  3,  5, 12, 11,
-  -46,-41,-32,-20,-19,-34,-12,-21,
-  -53,-41,-33,-35,-27,-30,  1,-21,
-  -56,-42,-28,-31,-26,-23, -8,-47,
-  -36,-34,-24,-19,-15,-25,-15,-33
-];
-
-const ROOK_EG = [
-    8, 14, 22, 16,  9,  2,  3, -2,
-    8, 18, 21, 13, 11, -2, -3,-16,
-    7, 10, 11, 10, -4, -9,-17,-21,
-    9,  8, 17, 12,  1, -6,-10,-14,
-    4,  8, 11,  9,  3,  1, -9,-15,
-   -1, -2, -3,  4, -2,-10,-26,-27,
-   -5, -2, -2,  1, -8,-12,-20,-11,
-  -10, -1,  7,  5, -3, -8, -9,-20
-];
-
-const QUEEN_MG = [
-  -40,-26,  9, 32, 35, 44, 55,  7,
-   -2,-24,-15,-20,-17, 22,  5, 47,
-   -1, -2, -1, 12, 19, 62, 63, 61,
-  -18,-14, -8,-10, -7,  9,  5, 10,
-  -14,-18,-17,-11,-10,-11,  1,  4,
-  -18, -7,-14,-14,-12, -4,  8,  1,
-  -19,-12, -1, -2, -4,  5, 11, 22,
-  -19,-29,-22, -5,-16,-30, -9,-15
-];
-
-const QUEEN_EG = [
-    5, 19, 24, 21, 18,  5,-27,  1,
-  -31, 12, 44, 58, 77, 35, 19, -6,
-  -22, -5, 31, 41, 51, 27, -9,-19,
-  -10, 14, 26, 48, 61, 44, 35, 17,
-  -19, 16, 22, 44, 40, 32, 13, -3,
-  -24,-14, 12,  9, 13,  3,-15,-28,
-  -34,-29,-34,-23,-20,-43,-74,-101,
-  -37,-32,-30,-44,-34,-31,-57,-67
-];
-
-const KING_MG = [
-   43, 43, 52,-50,-32,-24, 56,130,
-  -46,-31,-59, 41,-18,-14, 15, -7,
-  -74, 13,-38,-62,-35, 48, 27,-16,
-  -52,-62,-73,-118,-108,-80,-69,-97,
-  -63,-55,-87,-123,-115,-82,-85,-100,
-   -1,  3,-52,-66,-60,-55,-12,-28,
-   75, 34, 19,-18,-18,  1, 49, 59,
-   68, 93, 67,-34, 31,-10, 73, 74
-];
-
-const KING_EG = [
-  -114,-67,-52,-12,-23, -8,-24,-100,
-  -26,  8, 17,  0, 19, 34, 22, -4,
-   -6, 11, 26, 36, 37, 32, 30,  5,
-  -16, 17, 32, 45, 44, 41, 32,  7,
-  -26,  1, 25, 40, 40, 27, 15, -3,
-  -39,-15,  7, 19, 19, 11, -8,-21,
-  -60,-32,-18, -7, -3,-13,-32,-50,
-  -92,-74,-54,-34,-60,-36,-64,-92
-];
-
-const MG_TABLES = [null, PAWN_MG, KNIGHT_MG, BISHOP_MG, ROOK_MG, QUEEN_MG, KING_MG];
-const EG_TABLES = [null, PAWN_EG, KNIGHT_EG, BISHOP_EG, ROOK_EG, QUEEN_EG, KING_EG];
-
-// piece * 64 + sq, white positive, black negative, value included
-// piece 0 stays 0 so empty squares can be summed without a test
+const MAT_VALUE   = [0, 100, 325, 325, 500, 975, 0];
+const BISHOP_PAIR = 50;
 
 const pst_mg = new Int32Array(16 * 64);
 const pst_eg = new Int32Array(16 * 64);
 
 for (let ptype=PAWN; ptype <= KING; ptype++) {
   for (let sq=0; sq < 64; sq++) {
-    pst_mg[(ptype | WHITE) * 64 + sq] =   PIECE_VALUE_MG[ptype] + MG_TABLES[ptype][sq ^ 56];
-    pst_eg[(ptype | WHITE) * 64 + sq] =   PIECE_VALUE_EG[ptype] + EG_TABLES[ptype][sq ^ 56];
-    pst_mg[(ptype | BLACK) * 64 + sq] = -(PIECE_VALUE_MG[ptype] + MG_TABLES[ptype][sq]);
-    pst_eg[(ptype | BLACK) * 64 + sq] = -(PIECE_VALUE_EG[ptype] + EG_TABLES[ptype][sq]);
+    pst_mg[(ptype | WHITE) * 64 + sq] =  MAT_VALUE[ptype];
+    pst_mg[(ptype | BLACK) * 64 + sq] = -MAT_VALUE[ptype];
   }
 }
-
-// tuner features - with TRACE set, evaluate() adds each piece's white minus black count to
-// trace[(ptype - 1) * 64 + table index] and records the phase
-
-const F_PST        = 0;
-const NUM_FEATURES = F_PST + 6 * 64;
-
-const ENDGAME_SCALE = [64];
-
-const trace = new Int16Array(NUM_FEATURES);
-
-let trace_phase = 0;
-let trace_class = 0;
-
-// the piece square sums and phase are kept up to date by put_piece and remove_piece, so the
-// eval is the taper of the two sums, from the side to move's view
 
 function evaluate(ply) {
 
   const pos = nodes[ply].pos;
+  const key = pos[P_MAT];
 
-  let phase = pos[P_PHASE];
+  let e = pos[P_MG];
 
-  if (phase > MAX_PHASE)
-    phase = MAX_PHASE;
+  if (((key >>> MAT_SHIFT[BISHOP]) & 7) >= 2)
+    e += BISHOP_PAIR;
 
-  if (TRACE) {
-    const b = nodes[ply].board;
-    for (let sq=0; sq < 64; sq++) {
-      const piece = b[sq];
-      if (piece !== 0) {
-        const black = piece & BLACK;
-        trace[F_PST + ((piece & 7) - 1) * 64 + (black ? sq : sq ^ 56)] += black ? -1 : 1;
-      }
-    }
-    trace_phase = phase;
-  }
-
-  const e = ((pos[P_MG] * phase + pos[P_EG] * (MAX_PHASE - phase)) / MAX_PHASE) | 0;
+  if (((key >>> MAT_SHIFT[BISHOP | BLACK]) & 7) >= 2)
+    e -= BISHOP_PAIR;
 
   return pos[P_STM] === WHITE ? e : -e;
 
@@ -2746,7 +2583,7 @@ async function uci_exec(line) {
   switch (tokens[0]) {
 
     case 'uci':
-      uci_send('id name Lozza ' + VER + ' PST');
+      uci_send('id name Lozza ' + VER + ' Mat');
       uci_send('id author Colin Jenkins');
       uci_send('option name Hash type spin default 16 min 1 max 1024');
       uci_send('option name Contempt type spin default 0 min -200 max 200');

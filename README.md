@@ -8,7 +8,7 @@ The engine files here are the current development builds, so they change from ti
 |---|---|---|
 | lozzaNNUE.js | Neural network | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaNNUE) |
 | lozzaHCE.js | Hand coded evaluation | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaHCE) |
-| lozzaPST.js | Material + piece square tables | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaPST) |
+| lozzaMat.js | Material only, Larry Kaufman's piece values | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMat) |
 | lozzaBeal.js | Random (Beal effect) | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaBeal) |
 
 [index.html](https://op12no2.github.io/lozza-ui/index.html) lists the examples (hello world, stop, a promise wrapper, multi PV analysis and a game against Lozza) for the engine given by `?engine=`, default lozzaHCE.
