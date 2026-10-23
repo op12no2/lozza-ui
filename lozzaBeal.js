@@ -1,4 +1,12 @@
-
+// lozzaBeal.js: Lozza, a UCI chess engine in plain JavaScript, written to be read. it runs as a
+// web worker in a page (or under node with a small host) and talks UCI through messages. this is
+// the Beal build, Don Beal's experiment: the evaluation is a random number mixed from the
+// position's hash, and everything in the search that trusts an evaluation's meaning (reverse
+// futility, null move, futility, see pruning, the correction history) is removed. a search over
+// random leaves prefers positions with more moves, which is a mobility evaluation in disguise,
+// and it plays far better than it has any right to. the other builds share everything but the
+// evaluation
+//
 const VER = "12.0";
 
 const TRACE = false;

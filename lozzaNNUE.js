@@ -1,12 +1,12 @@
-
-// lozzaNNUE.js: lozza.js with a neural network in place of the hand-crafted evaluation, built by
-// bin/nnue.py. the net is (768 -> 256) x 2 -> 1: one weight row per piece and square, two
-// accumulators of 256 (one from each side), unclipped squared relu (int32 accumulators), and one
-// output weight per hidden unit per side; Lozza experimental's net (2026), trained with bullet
-// on Lozza's own games. bullet's quantisation: QA 255, QB 64, output scale 400. the first layer
-// travels packed at 8 bits per weight with a scale per hidden unit (194 KB, base64 at the end of
-// the file) and is unpacked into the tables when the engine loads; the search and everything
-// else is lozza.js as it is
+// lozzaNNUE.js: Lozza, a UCI chess engine in plain JavaScript, written to be read. it runs as a
+// web worker in a page (or under node with a small host) and talks UCI through messages. this is
+// the neural network build: the evaluation is a net of (768 -> 256) x 2 -> 1, one weight row per
+// piece and square, two accumulators of 256 (one from each side), unclipped squared relu (int32
+// accumulators), and one output weight per hidden unit per side; Lozza experimental's net
+// (2026), trained with bullet on Lozza's own games. bullet's quantisation: QA 255, QB 64, output
+// scale 400. the first layer travels packed at 8 bits per weight with a scale per hidden unit
+// (194 KB, base64 at the end of the file) and is unpacked into the tables when the engine loads.
+// the other builds share everything but the evaluation
 //
 const VER = "12.0";
 
@@ -423,7 +423,7 @@ function get_weights_buffer() {
 
 }
 
-// the blob is bullet's checkpoint with the first layer packed by bin/nnue.py: a header (hidden
+// the blob is bullet's checkpoint with the first layer packed at build time: a header (hidden
 // size, bits per weight), a scale per hidden unit in 1/64 QA units, the input weights as levels
 // of that many bits (feature major, little endian within each byte; a weight is its level times
 // its unit's scale), then the hidden biases, output weights (us then them) and output bias as

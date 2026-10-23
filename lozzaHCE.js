@@ -1,4 +1,10 @@
-
+// lozzaHCE.js: Lozza, a UCI chess engine in plain JavaScript, written to be read. it runs as a
+// web worker in a page (or under node with a small host) and talks UCI through messages. this is
+// the hand-crafted evaluation build: the evaluation is a list of named chess ideas, each with
+// its weights in the source and a note of where the idea came from, so a reader can see why a
+// position scores as it does and change any number. the other builds share everything but the
+// evaluation
+//
 const VER = "12.0";
 
 const TRACE = false;

@@ -1,4 +1,9 @@
-
+// lozzaMat.js: Lozza, a UCI chess engine in plain JavaScript, written to be read. it runs as a
+// web worker in a page (or under node with a small host) and talks UCI through messages. this is
+// the material-only build: the evaluation is Larry Kaufman's piece values, 100, 325, 325, 500
+// and 975, plus 50 for the bishop pair, and nothing else, so it shows what the search is worth
+// with the barest knowledge. the other builds share everything but the evaluation
+//
 const VER = "12.0";
 
 const TRACE = false;

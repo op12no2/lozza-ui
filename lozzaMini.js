@@ -1,12 +1,11 @@
-
-// lozzaMini.js: lozza.js with a small neural network in place of the hand-crafted evaluation,
-// built by bin/mini.py, with the net written out in the source as boards so that it can be read.
-// the net is (768 -> 16) x 2 -> 1: for each of the 16 hidden units, twelve boards give the
-// weight of each piece on each square (see NET_BOARDS), two accumulators sum them for the pieces
-// on the board as seen from each side, SCReLU squares each after clipping, and the output
-// weights add them up; trained with bullet by nnue/train.rs on leela's test80 data. bullet's
-// quantisation: QA 255, QB 64, output scale 400. the search and everything else is lozza.js as
-// it is
+// lozzaMini.js: Lozza, a UCI chess engine in plain JavaScript, written to be read. it runs as a
+// web worker in a page (or under node with a small host) and talks UCI through messages. this is
+// the small net build, with the net written out in the source as boards so that it can be read:
+// (768 -> 16) x 2 -> 1; for each of the 16 hidden units twelve boards give the weight of each
+// piece on each square (NET_BOARDS below), two accumulators sum them for the pieces on the board
+// as seen from each side, SCReLU squares each after clipping, and the output weights add them
+// up; trained with bullet on leela's test80 data. bullet's quantisation: QA 255, QB 64, output
+// scale 400. the other builds share everything but the evaluation
 //
 const VER = "12.0";
 
