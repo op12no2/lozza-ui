@@ -21,7 +21,9 @@ const WHITE_RIGHTS_QUEEN = 2;
 const BLACK_RIGHTS_KING  = 4;
 const BLACK_RIGHTS_QUEEN = 8;
 
-// moves - see CLAUDE.md for the layout
+// moves are ints: bits 0-5 the from square, 6-11 the to square, 12 a capture of any kind (ep
+// included), 13 an ep capture, 14 a promotion with the piece in bits 15-16 as piece - KNIGHT,
+// and 17 castling, encoded as the king's move
 
 const CAPTURE_BIT       = 1 << 12;
 const EP_CAPTURE_BIT    = 1 << 13;
@@ -36,26 +38,67 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // pos
 //
 
-// each ply's position is one int32 slot in its own buffer, copied with a single native set()
-//
-//   0..15   the board, 64 bytes (a piece code per square, a1 = 0), seen through node.board
-//   16..    the state below; mg, eg and phase are the running pst sums, white positive
+// each ply's position is an object, created up front and copied field by field by make_move
+// (copy-make): the board (a piece code per square, a1 = 0), the side to move, the castling
+// rights, the ep square, the halfmove clock, the zobrist hash as two int32 halves, the running
+// piece square sums and phase (white positive), the king squares by colour index, the material
+// key (piece counts packed, see MAT_SHIFT) and the pawn key (the zobrist of the pawns alone,
+// for the correction history)
 
-const P_BOARD  = 0;
-const P_STM    = 16;
-const P_RIGHTS = 17;
-const P_EP     = 18;
-const P_HMC    = 19;
-const P_LO     = 20; // hash
-const P_HI     = 21;
-const P_MG     = 22;
-const P_EG     = 23;
-const P_PHASE  = 24;
-const P_KINGS  = 25; // + colour index
-const P_MAT    = 27; // material key: piece counts packed, see MAT_SHIFT
-const P_PK_LO  = 28; // the pawn key: the zobrist of the pawns alone, for the correction history
-const P_PK_HI  = 29;
-const P_SIZE   = 30;
+function new_pos() {
+  return {
+    board:  new Uint8Array(64),
+    stm:    0,
+    rights: 0,
+    ep:     0,
+    hmc:    0,
+    lo:     0,
+    hi:     0,
+    mg:     0,
+    eg:     0,
+    phase:  0,
+    kings:  new Uint8Array(2),
+    mat:    0,
+    pk_lo:  0,
+    pk_hi:  0
+  };
+}
+
+function copy_pos(dst, src) {
+  dst.board.set(src.board);
+  dst.stm      = src.stm;
+  dst.rights   = src.rights;
+  dst.ep       = src.ep;
+  dst.hmc      = src.hmc;
+  dst.lo       = src.lo;
+  dst.hi       = src.hi;
+  dst.mg       = src.mg;
+  dst.eg       = src.eg;
+  dst.phase    = src.phase;
+  dst.kings[0] = src.kings[0];
+  dst.kings[1] = src.kings[1];
+  dst.mat      = src.mat;
+  dst.pk_lo    = src.pk_lo;
+  dst.pk_hi    = src.pk_hi;
+}
+
+function clear_pos(pos) {
+  pos.board.fill(0);
+  pos.stm      = 0;
+  pos.rights   = 0;
+  pos.ep       = 0;
+  pos.hmc      = 0;
+  pos.lo       = 0;
+  pos.hi       = 0;
+  pos.mg       = 0;
+  pos.eg       = 0;
+  pos.phase    = 0;
+  pos.kings[0] = 0;
+  pos.kings[1] = 0;
+  pos.mat      = 0;
+  pos.pk_lo    = 0;
+  pos.pk_hi    = 0;
+}
 
 // bit position of each piece code's count in the material key: 4 bits for pawns, 3 for the
 // rest (white then black), 32 bits in all
@@ -75,10 +118,10 @@ function put_piece(node, piece, sq) {
 
   node.board[sq] = piece;
 
-  pos[P_MG]    += pst_mg[piece * 64 + sq];
-  pos[P_EG]    += pst_eg[piece * 64 + sq];
-  pos[P_PHASE] += PHASE[piece & 7];
-  pos[P_MAT]   += MAT_INC[piece];
+  pos.mg    += pst_mg[piece * 64 + sq];
+  pos.eg    += pst_eg[piece * 64 + sq];
+  pos.phase += PHASE[piece & 7];
+  pos.mat   += MAT_INC[piece];
 
   hash_piece(pos, piece, sq);
 
@@ -90,10 +133,10 @@ function remove_piece(node, piece, sq) {
 
   node.board[sq] = 0;
 
-  pos[P_MG]    -= pst_mg[piece * 64 + sq];
-  pos[P_EG]    -= pst_eg[piece * 64 + sq];
-  pos[P_PHASE] -= PHASE[piece & 7];
-  pos[P_MAT]   -= MAT_INC[piece];
+  pos.mg    -= pst_mg[piece * 64 + sq];
+  pos.eg    -= pst_eg[piece * 64 + sq];
+  pos.phase -= PHASE[piece & 7];
+  pos.mat   -= MAT_INC[piece];
 
   hash_piece(pos, piece, sq);
 
@@ -121,7 +164,7 @@ function set_position(ply, fen) {
 
   const [board_str, stm_str = 'w', rights_str = '-', ep_str = '-', hmc_str = '0'] = fen.trim().split(/\s+/);
 
-  pos.fill(0);
+  clear_pos(pos);
 
   node.cont = -1;
 
@@ -142,29 +185,29 @@ function set_position(ply, fen) {
       const ptype  = 'pnbrqk'.indexOf(ch.toLowerCase()) + 1;
       put_piece(node, ptype | colour, sq);
       if (ptype === KING)
-        pos[P_KINGS + (colour >>> 3)] = sq;
+        pos.kings[(colour >>> 3)] = sq;
       file++;
     }
   }
 
-  pos[P_STM] = stm_str === 'b' ? BLACK : WHITE;
+  pos.stm = stm_str === 'b' ? BLACK : WHITE;
 
   for (const ch of rights_str) {
     switch (ch) {
-      case 'K': pos[P_RIGHTS] |= WHITE_RIGHTS_KING;  break;
-      case 'Q': pos[P_RIGHTS] |= WHITE_RIGHTS_QUEEN; break;
-      case 'k': pos[P_RIGHTS] |= BLACK_RIGHTS_KING;  break;
-      case 'q': pos[P_RIGHTS] |= BLACK_RIGHTS_QUEEN; break;
+      case 'K': pos.rights |= WHITE_RIGHTS_KING;  break;
+      case 'Q': pos.rights |= WHITE_RIGHTS_QUEEN; break;
+      case 'k': pos.rights |= BLACK_RIGHTS_KING;  break;
+      case 'q': pos.rights |= BLACK_RIGHTS_QUEEN; break;
     }
   }
 
   if (ep_str !== '-') {
     const ep = (ep_str.charCodeAt(1) - 49) * 8 + (ep_str.charCodeAt(0) - 97);
-    if (ep_capturable(b, ep - PAWN_PUSH[pos[P_STM] >>> 3], pos[P_STM]))
-      pos[P_EP] = ep;
+    if (ep_capturable(b, ep - PAWN_PUSH[pos.stm >>> 3], pos.stm))
+      pos.ep = ep;
   }
 
-  pos[P_HMC] = parseInt(hmc_str) || 0;
+  pos.hmc = parseInt(hmc_str) || 0;
 
   set_hash(node);
 
@@ -208,7 +251,7 @@ function fen_string(ply) {
       s += '/';
   }
 
-  const r = pos[P_RIGHTS];
+  const r = pos.rights;
 
   let rights = '';
   if (r & WHITE_RIGHTS_KING)  rights += 'K';
@@ -216,10 +259,10 @@ function fen_string(ply) {
   if (r & BLACK_RIGHTS_KING)  rights += 'k';
   if (r & BLACK_RIGHTS_QUEEN) rights += 'q';
 
-  return s + ' ' + (pos[P_STM] === BLACK ? 'b' : 'w') +
+  return s + ' ' + (pos.stm === BLACK ? 'b' : 'w') +
          ' ' + (rights || '-') +
-         ' ' + (pos[P_EP] ? sq_name(pos[P_EP]) : '-') +
-         ' ' + pos[P_HMC] + ' 1';
+         ' ' + (pos.ep ? sq_name(pos.ep) : '-') +
+         ' ' + pos.hmc + ' 1';
 
 }
 
@@ -243,7 +286,7 @@ function pp_position(ply) {
   }
   uci_send('   a b c d e f g h');
 
-  const r = pos[P_RIGHTS];
+  const r = pos.rights;
 
   let rights = '';
   if (r & WHITE_RIGHTS_KING)  rights += 'K';
@@ -251,12 +294,12 @@ function pp_position(ply) {
   if (r & BLACK_RIGHTS_KING)  rights += 'k';
   if (r & BLACK_RIGHTS_QUEEN) rights += 'q';
 
-  uci_send('stm ' + (pos[P_STM] === BLACK ? 'b' : 'w') +
+  uci_send('stm ' + (pos.stm === BLACK ? 'b' : 'w') +
            ' rights ' + (rights || '-') +
-           ' ep ' + (pos[P_EP] ? sq_name(pos[P_EP]) : '-') +
-           ' hmc ' + pos[P_HMC] +
-           ' kings ' + sq_name(pos[P_KINGS + WHITE_INDEX]) + ' ' + sq_name(pos[P_KINGS + BLACK_INDEX]) +
-           ' hash ' + hex32(pos[P_HI]) + hex32(pos[P_LO]));
+           ' ep ' + (pos.ep ? sq_name(pos.ep) : '-') +
+           ' hmc ' + pos.hmc +
+           ' kings ' + sq_name(pos.kings[WHITE_INDEX]) + ' ' + sq_name(pos.kings[BLACK_INDEX]) +
+           ' hash ' + hex32(pos.hi) + hex32(pos.lo));
 
 }
 
@@ -270,10 +313,10 @@ const MAX_PLY   = 128;
 // pos and board share one buffer, so copying pos copies the board too
 
 function new_node() {
-  const buf = new ArrayBuffer(P_SIZE * 4);
+  const pos = new_pos();
   return {
-    pos:       new Int32Array(buf),
-    board:     new Uint8Array(buf, P_BOARD * 4, 64),
+    pos:       pos,
+    board:     pos.board,
     moves:     new Uint32Array(MAX_MOVES),
     played:    new Uint32Array(MAX_MOVES),
     num_moves: 0,
@@ -306,8 +349,8 @@ const rep_hi = new Int32Array(MAX_REP + MAX_PLY + 1);
 let rep_root = 0;
 
 function rep_set(i, pos) {
-  rep_lo[i] = pos[P_LO];
-  rep_hi[i] = pos[P_HI];
+  rep_lo[i] = pos.lo;
+  rep_hi[i] = pos.hi;
 }
 
 //
@@ -364,27 +407,27 @@ for (let sq=1; sq < 64; sq++) {
 // each of these toggles a feature in or out of the hash
 
 function hash_piece(pos, piece, sq) {
-  pos[P_LO] ^= piece_lo[piece * 64 + sq];
-  pos[P_HI] ^= piece_hi[piece * 64 + sq];
+  pos.lo ^= piece_lo[piece * 64 + sq];
+  pos.hi ^= piece_hi[piece * 64 + sq];
   if ((piece & 7) === PAWN) {
-    pos[P_PK_LO] ^= piece_lo[piece * 64 + sq];
-    pos[P_PK_HI] ^= piece_hi[piece * 64 + sq];
+    pos.pk_lo ^= piece_lo[piece * 64 + sq];
+    pos.pk_hi ^= piece_hi[piece * 64 + sq];
   }
 }
 
 function hash_rights(pos) {
-  pos[P_LO] ^= rights_lo[pos[P_RIGHTS]];
-  pos[P_HI] ^= rights_hi[pos[P_RIGHTS]];
+  pos.lo ^= rights_lo[pos.rights];
+  pos.hi ^= rights_hi[pos.rights];
 }
 
 function hash_ep(pos) {
-  pos[P_LO] ^= ep_lo[pos[P_EP]];
-  pos[P_HI] ^= ep_hi[pos[P_EP]];
+  pos.lo ^= ep_lo[pos.ep];
+  pos.hi ^= ep_hi[pos.ep];
 }
 
 function hash_stm(pos) {
-  pos[P_LO] ^= stm_lo;
-  pos[P_HI] ^= stm_hi;
+  pos.lo ^= stm_lo;
+  pos.hi ^= stm_hi;
 }
 
 // from scratch; make_move updates incrementally
@@ -394,10 +437,10 @@ function set_hash(node) {
   const pos = node.pos;
   const b   = node.board;
 
-  pos[P_LO]    = 0;
-  pos[P_HI]    = 0;
-  pos[P_PK_LO] = 0;
-  pos[P_PK_HI] = 0;
+  pos.lo    = 0;
+  pos.hi    = 0;
+  pos.pk_lo = 0;
+  pos.pk_hi = 0;
 
   for (let sq=0; sq < 64; sq++)
     hash_piece(pos, b[sq], sq);
@@ -405,7 +448,7 @@ function set_hash(node) {
   hash_rights(pos);
   hash_ep(pos);
 
-  if (pos[P_STM] === BLACK)
+  if (pos.stm === BLACK)
     hash_stm(pos);
 
 }
@@ -544,8 +587,8 @@ function is_attacked(node, sq, by_colour) {
 }
 
 function is_in_check(node) {
-  const stm = node.pos[P_STM];
-  return is_attacked(node, node.pos[P_KINGS + (stm >>> 3)], stm ^ BLACK);
+  const stm = node.pos.stm;
+  return is_attacked(node, node.pos.kings[(stm >>> 3)], stm ^ BLACK);
 }
 
 //
@@ -658,7 +701,7 @@ function gen_rays(moves, n, b, sq, d0, d1, stm, captures_only) {
 
 function gen_castling(moves, n, b, pos, stm) {
 
-  const rights = pos[P_RIGHTS];
+  const rights = pos.rights;
 
   if (stm === WHITE) {
     if ((rights & WHITE_RIGHTS_KING)  && b[5] === 0 && b[6] === 0 && !attacked(b, 5, BLACK, -1))
@@ -683,8 +726,8 @@ function gen_moves(ply, captures_only) {
   const pos   = node.pos;
   const b     = node.board;
   const moves = node.moves;
-  const stm   = pos[P_STM];
-  const ep    = pos[P_EP];
+  const stm   = pos.stm;
+  const ep    = pos.ep;
 
   node.in_check = is_in_check(node);
 
@@ -770,11 +813,11 @@ function make_move(ply, move) {
   const pos  = node.pos;
   const b    = node.board;
 
-  pos.set(nodes[ply].pos);
+  copy_pos(pos, nodes[ply].pos);
 
-  const stm  = pos[P_STM];
+  const stm  = pos.stm;
   const stmi = stm >>> 3;
-  const ksq  = pos[P_KINGS + stmi];
+  const ksq  = pos.kings[stmi];
 
   const src      = move & 63;
   const dst      = (move >>> 6) & 63;
@@ -805,32 +848,32 @@ function make_move(ply, move) {
   }
 
   if (ptype === KING)
-    pos[P_KINGS + stmi] = dst;
+    pos.kings[stmi] = dst;
 
   hash_rights(pos);
-  pos[P_RIGHTS] &= RIGHTS_MASK[src] & RIGHTS_MASK[dst];
+  pos.rights &= RIGHTS_MASK[src] & RIGHTS_MASK[dst];
   hash_rights(pos);
 
   hash_ep(pos);
   if (ptype === PAWN && (dst - src === 16 || src - dst === 16) && ep_capturable(b, dst, stm ^ BLACK))
-    pos[P_EP] = src + PAWN_PUSH[stmi];
+    pos.ep = src + PAWN_PUSH[stmi];
   else
-    pos[P_EP] = 0;
+    pos.ep = 0;
   hash_ep(pos);
 
   if (ptype === PAWN || (move & CAPTURE_BIT))
-    pos[P_HMC] = 0;
+    pos.hmc = 0;
   else
-    pos[P_HMC]++;
+    pos.hmc++;
 
-  pos[P_STM] = stm ^ BLACK;
+  pos.stm = stm ^ BLACK;
   hash_stm(pos);
 
   // only a king move, a move out of check, an ep capture or a piece leaving a line through
   // the king can leave the king attacked, so the others need no test
 
   if (ptype === KING || nodes[ply].in_check || (move & EP_CAPTURE_BIT) || on_line[ksq * 64 + src])
-    return !attacked(b, pos[P_KINGS + stmi], stm ^ BLACK, -1);
+    return !attacked(b, pos.kings[stmi], stm ^ BLACK, -1);
 
   return true;
 
@@ -843,16 +886,16 @@ function make_null(ply) {
 
   const pos = nodes[ply + 1].pos;
 
-  pos.set(nodes[ply].pos);
+  copy_pos(pos, nodes[ply].pos);
 
   nodes[ply + 1].cont = -1;
 
   hash_ep(pos);
-  pos[P_EP] = 0;
+  pos.ep = 0;
 
-  pos[P_HMC] = 0;
+  pos.hmc = 0;
 
-  pos[P_STM] ^= BLACK;
+  pos.stm ^= BLACK;
   hash_stm(pos);
 
 }
@@ -1440,7 +1483,7 @@ let imb_eg = 0;
 
 function imbalance(pos) {
 
-  const key = pos[P_MAT];
+  const key = pos.mat;
   const i   = (key ^ (key >>> 14)) & (IMB_CACHE_SIZE - 1);
 
   if (!TRACE && imb_keys[i] === key) {
@@ -1561,7 +1604,7 @@ function bishop_on_light(b, bishop) {
 
 function scale_class(pos, b, eg) {
 
-  const key    = pos[P_MAT];
+  const key    = pos.mat;
   const strong = eg > 0 ? 0 : BLACK;
   const weak   = strong ^ BLACK;
 
@@ -1695,8 +1738,8 @@ function pawn_terms(pos, b) {
     const enemy_low  = pawn_low[e];
     const enemy_high = pawn_high[e];
 
-    const own_k   = pos[P_KINGS + c] * 64;
-    const enemy_k = pos[P_KINGS + e] * 64;
+    const own_k   = pos.kings[c] * 64;
+    const enemy_k = pos.kings[e] * 64;
 
     let pm = 0;
     let pe = 0;
@@ -1829,7 +1872,7 @@ function king_exposure(pos) {
 
   for (let c=0; c < 2; c++) {
 
-    const kf = pos[P_KINGS + c] & 7;
+    const kf = pos.kings[c] & 7;
 
     let open = 0;
 
@@ -1902,7 +1945,7 @@ function piece_terms(pos, b) {
 
     const colour = c << 3;
     const e      = c ^ 1;
-    const ek     = pos[P_KINGS + e];
+    const ek     = pos.kings[e];
     const kz     = ek * 64;
 
     let mob_mg = 0;
@@ -2003,7 +2046,7 @@ function piece_terms(pos, b) {
 
     const own_open  = ks_open[c];
     const own_kfile = ks_kfile[c];
-    const enemy_q   = ((pos[P_MAT] >>> MAT_SHIFT[QUEEN | (colour ^ BLACK)]) & 7) !== 0 ? 1 : 0;
+    const enemy_q   = ((pos.mat >>> MAT_SHIFT[QUEEN | (colour ^ BLACK)]) & 7) !== 0 ? 1 : 0;
     const att_open  = attackers * ks_open[e];
 
     mob_mg += KS_ATTACK_MG[at] * attack + KS_ATT_OPEN_MG[0] * att_open +
@@ -2137,7 +2180,7 @@ function queen_terms(pos, b) {
 
     const colour = c << 3;
     const e      = c ^ 1;
-    const ek     = pos[P_KINGS + e];
+    const ek     = pos.kings[e];
     const queen  = QUEEN | colour;
 
     let queens = 0;
@@ -2209,7 +2252,7 @@ function queen_terms(pos, b) {
     }
 
     if (n !== 0) {
-      const k = (pos[P_STM] >>> 3) === c ? 0 : 1;
+      const k = (pos.stm >>> 3) === c ? 0 : 1;
       if (c) {
         mg -= KS_QCHECK_MG[k] * n;
         eg -= KS_QCHECK_EG[k] * n;
@@ -2233,16 +2276,16 @@ function evaluate(ply) {
   const pos = nodes[ply].pos;
   const b   = nodes[ply].board;
 
-  const ec = pos[P_LO] & EVAL_CACHE_MASK;
+  const ec = pos.lo & EVAL_CACHE_MASK;
 
-  if (!TRACE && ec_lo[ec] === pos[P_LO] && ec_hi[ec] === pos[P_HI])
+  if (!TRACE && ec_lo[ec] === pos.lo && ec_hi[ec] === pos.hi)
     return ec_eval[ec];
 
   // the piece square sums and phase are kept up to date by put_piece and remove_piece
 
-  let mg    = pos[P_MG];
-  let eg    = pos[P_EG];
-  let phase = pos[P_PHASE];
+  let mg    = pos.mg;
+  let eg    = pos.eg;
+  let phase = pos.phase;
 
   if (TRACE) {
     for (let sq=0; sq < 64; sq++) {
@@ -2293,10 +2336,10 @@ function evaluate(ply) {
 
   const e = (((mg * IMB_UNITS + imb_mg) * phase + (eg * IMB_UNITS + imb_eg) * (MAX_PHASE - phase) * ENDGAME_SCALE[sc] / 64) / (MAX_PHASE * IMB_UNITS)) | 0;
 
-  const v = pos[P_STM] === WHITE ? e : -e;
+  const v = pos.stm === WHITE ? e : -e;
 
-  ec_lo[ec]   = pos[P_LO];
-  ec_hi[ec]   = pos[P_HI];
+  ec_lo[ec]   = pos.lo;
+  ec_hi[ec]   = pos.hi;
   ec_eval[ec] = v;
 
   return v;
@@ -2367,10 +2410,10 @@ const CORR_MAX   = CORR_GRAIN * 32;
 const corr_pawn = new Int32Array(2 * CORR_SIZE);
 
 function corr_index(pos) {
-  let h = Math.imul(pos[P_PK_LO] ^ 0x2545f491, 0x9e3779b1);
-  h = Math.imul(h ^ (h >>> 15) ^ pos[P_PK_HI], 0x85ebca6b);
+  let h = Math.imul(pos.pk_lo ^ 0x2545f491, 0x9e3779b1);
+  h = Math.imul(h ^ (h >>> 15) ^ pos.pk_hi, 0x85ebca6b);
   h ^= h >>> 13;
-  return (pos[P_STM] >>> 3) * CORR_SIZE + (h & (CORR_SIZE - 1));
+  return (pos.stm >>> 3) * CORR_SIZE + (h & (CORR_SIZE - 1));
 }
 
 function corrected(pos, ev) {
@@ -2399,9 +2442,9 @@ function tt_hashfull() {
 
 function tt_get(pos) {
 
-  const i = pos[P_LO] & tt_mask;
+  const i = pos.lo & tt_mask;
 
-  if (tt_flags[i] !== 0 && tt_checks[i] === pos[P_HI])
+  if (tt_flags[i] !== 0 && tt_checks[i] === pos.hi)
     return i;
 
   return -1;
@@ -2426,7 +2469,7 @@ function tt_score(i, ply) {
 
 function tt_put(pos, ply, depth, flag, score, move, ev) {
 
-  const i = pos[P_LO] & tt_mask;
+  const i = pos.lo & tt_mask;
 
   if (depth === 0 && tt_flags[i] !== 0 && tt_depths[i] > 0)
     return;
@@ -2436,7 +2479,7 @@ function tt_put(pos, ply, depth, flag, score, move, ev) {
   else if (score < -MATE + MAX_PLY)
     score -= ply;
 
-  tt_checks[i] = pos[P_HI];
+  tt_checks[i] = pos.hi;
   tt_moves[i]  = move;
   tt_scores[i] = score;
   tt_depths[i] = depth;
@@ -2514,7 +2557,7 @@ let contempt = 0;
 let root_stm = WHITE;
 
 function draw_score(pos) {
-  return pos[P_STM] === root_stm ? -contempt : contempt;
+  return pos.stm === root_stm ? -contempt : contempt;
 }
 
 // set when a stop command arrives at a yield during a search (uci_poll); go clears it
@@ -2541,10 +2584,10 @@ function is_repetition(ply) {
 
   const pos  = nodes[ply].pos;
   const cur  = rep_root + ply;
-  const last = Math.max(0, cur - pos[P_HMC]);
+  const last = Math.max(0, cur - pos.hmc);
 
   for (let i=cur-4; i >= last; i -= 2)
-    if (rep_lo[i] === pos[P_LO] && rep_hi[i] === pos[P_HI])
+    if (rep_lo[i] === pos.lo && rep_hi[i] === pos.hi)
       return true;
 
   return false;
@@ -2555,7 +2598,7 @@ function is_repetition(ply) {
 
 function material_draw(pos) {
 
-  const key = pos[P_MAT];
+  const key = pos.mat;
 
   if (((key >>> MAT_SHIFT[PAWN]) & 15) !== 0 || ((key >>> MAT_SHIFT[PAWN | BLACK]) & 15) !== 0)
     return false;
@@ -2692,7 +2735,7 @@ function search(ply, depth, alpha, beta) {
 
   rep_set(rep_root + ply, pos);
 
-  if (ply > 0 && (pos[P_HMC] >= 100 || is_repetition(ply) || material_draw(pos)))
+  if (ply > 0 && (pos.hmc >= 100 || is_repetition(ply) || material_draw(pos)))
     return draw_score(pos);
 
   if (ply >= MAX_PLY - 1)
@@ -2760,7 +2803,7 @@ function search(ply, depth, alpha, beta) {
 
   // null move - if passing still fails high, a real move almost certainly will
 
-  if (!pv_node && !in_check && excluded === 0 && depth >= 3 && ev >= beta && has_pieces(b, pos[P_STM])) {
+  if (!pv_node && !in_check && excluded === 0 && depth >= 3 && ev >= beta && has_pieces(b, pos.stm)) {
     make_null(ply);
     const r     = 3 + (depth >> 2);
     const score = -search(ply + 1, depth - 1 - r, -beta, -beta + 1);
@@ -2968,7 +3011,7 @@ async function go(max_depth, max_nodes, soft_ms, hard_ms) {
   stop_nodes   = max_nodes;
   limits_on    = false;
   root_move    = 0;
-  root_stm     = nodes[0].pos[P_STM];
+  root_stm     = nodes[0].pos.stm;
 
   // history and killers carry over from the last search of this game, history halved
 
@@ -3273,9 +3316,9 @@ async function uci_exec(line) {
             break;
           }
           make_move(0, move);
-          nodes[0].pos.set(nodes[1].pos);
+          copy_pos(nodes[0].pos, nodes[1].pos);
           nodes[0].cont = nodes[1].cont;
-          rep_root = nodes[0].pos[P_HMC] === 0 ? 0 : rep_root + 1;
+          rep_root = nodes[0].pos.hmc === 0 ? 0 : rep_root + 1;
           rep_set(rep_root, nodes[0].pos);
         }
       }
@@ -3312,8 +3355,8 @@ async function uci_exec(line) {
       }
       // soft: don't start another iteration, hard: abort
       let soft = Infinity, hard = Infinity;
-      const time = nodes[0].pos[P_STM] === WHITE ? wtime : btime;
-      const inc  = nodes[0].pos[P_STM] === WHITE ? winc  : binc;
+      const time = nodes[0].pos.stm === WHITE ? wtime : btime;
+      const inc  = nodes[0].pos.stm === WHITE ? winc  : binc;
       if (movetime) {
         soft = hard = movetime;
       }
