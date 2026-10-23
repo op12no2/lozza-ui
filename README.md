@@ -8,6 +8,7 @@ The engine files here are the current development builds, so they change from ti
 |---|---|---|
 | lozzaNNUE.js | Neural network | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaNNUE) |
 | lozzaHCE.js | Hand coded evaluation | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaHCE) |
+| lozzaMini.js | A small neural network, written out as boards you can read | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMini) |
 | lozzaMat.js | Material only, Larry Kaufman's piece values | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMat) |
 | lozzaBeal.js | Random (Beal effect) | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaBeal) |
 
