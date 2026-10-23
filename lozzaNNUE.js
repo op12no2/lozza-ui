@@ -87,7 +87,7 @@ function put_piece(node, piece, sq) {
 
   hash_piece(pos, piece, sq);
 
-  net_kernels.add(node.acc, node.acc, NET_OFF[piece * 64 + sq]);
+  net_add(node.acc, NET_ROW[piece * 64 + sq]);
 
 }
 
@@ -109,7 +109,7 @@ function remove_piece(node, piece, sq) {
 
   hash_piece(pos, piece, sq);
 
-  net_kernels.sub(node.acc, node.acc, NET_OFF[piece * 64 + sq]);
+  net_sub(node.acc, NET_ROW[piece * 64 + sq]);
 
 }
 
@@ -287,10 +287,12 @@ const MAX_PLY   = 128;
 // net
 //
 
-// the net ((768 -> 256) x 2 -> 1, squared relu) and its WebAssembly SIMD kernels in place of the
-// hand-crafted eval. The weights are the base64 blob in get_weights() at the end of the file.
-// The wasm module is assembled from bytes at startup (the kernels below are the source).
-// Weights and one accumulator pair per ply live in the module's memory; JS passes byte offsets.
+// the net, (768 -> 256) x 2 -> 1 with squared relu, in place of the hand-crafted eval. each
+// node holds two accumulators of 256, one seen from white's side and one from black's, kept up
+// to date by put_piece and remove_piece (one weight row per piece and square added or taken
+// away) and copied along with the position; evaluate squares the active half of each, weights
+// them by the output row with the side to move's accumulator first, and scales to centipawns.
+// the weights are the base64 blob in get_weights() at the end of the file, in bullet's layout
 
 const NET_QA      = 255;
 const NET_QB      = 64;
@@ -299,323 +301,60 @@ const NET_SCALE   = 400;
 const NET_I_SIZE  = 768;
 const NET_H1_SIZE = 256;
 
-const WASM_I32   = 0x7F;
-const WASM_V128  = 0x7B;
-
-const WASM_H1W   = 0;                                        // us weights,   NET_I_SIZE*NET_H1_SIZE i32
-const WASM_H2W   = WASM_H1W + NET_I_SIZE * NET_H1_SIZE * 4;  // them weights, NET_I_SIZE*NET_H1_SIZE i32
-const WASM_OW    = WASM_H2W + NET_I_SIZE * NET_H1_SIZE * 4;  // output weights, NET_H1_SIZE*2 i32
-const WASM_ACCSZ = NET_H1_SIZE * 2 * 4;                      // bytes per accumulator pair (us then them)
-const WASM_NODES = WASM_OW  + NET_H1_SIZE * 2 * 4;           // per node accumulator pairs, nodes[ply].acc
-const WASM_END   = WASM_NODES + (MAX_PLY + 1) * WASM_ACCSZ;
-const WASM_PAGES = Math.ceil(WASM_END / 65536);
-
-function wasmLeb (n) {
-  const out = [];
-  do { let b = n & 0x7F; n >>>= 7; if (n) b |= 0x80; out.push(b); } while (n);
-  return out;
-}
-
-function wasmSleb (n) {
-  const out = [];
-  while (true) {
-    const b = n & 0x7F; n >>= 7;
-    if ((n === 0 && (b & 0x40) === 0) || (n === -1 && (b & 0x40) !== 0)) { out.push(b); return out; }
-    out.push(b | 0x80);
-  }
-}
-
-function wasmVec (items) {
-  return wasmLeb(items.length).concat(items.flat());
-}
-
-function wasmSection (id, bytes) {
-  return [id].concat(wasmLeb(bytes.length), bytes);
-}
-
-//
-// function body builder; each method appends an instruction
-//
-
-function WasmFn (params, results) {
-  this.params  = params;
-  this.results = results;
-  this.locals  = [];
-  this.code    = [];
-}
-
-WasmFn.prototype.local = function (type) {          // declare a local, returns its index
-  this.locals.push(type);
-  return this.params.length + this.locals.length - 1;
-};
-WasmFn.prototype.op = function () { for (let i=0; i < arguments.length; i++) this.code.push(arguments[i]); return this; };
-WasmFn.prototype.simd = function (opcode) { this.code.push(0xFD); this.code.push(...wasmLeb(opcode)); return this; };
-
-WasmFn.prototype.i32_const  = function (n) { return this.op(0x41, ...wasmSleb(n)); };
-WasmFn.prototype.local_get  = function (i) { return this.op(0x20, ...wasmLeb(i)); };
-WasmFn.prototype.local_set  = function (i) { return this.op(0x21, ...wasmLeb(i)); };
-WasmFn.prototype.local_tee  = function (i) { return this.op(0x22, ...wasmLeb(i)); };
-WasmFn.prototype.i32_add    = function () { return this.op(0x6A); };
-WasmFn.prototype.i32_sub    = function () { return this.op(0x6B); };
-WasmFn.prototype.i32_mul    = function () { return this.op(0x6C); };
-WasmFn.prototype.i32_div_s  = function () { return this.op(0x6D); };
-WasmFn.prototype.i32_lt_u   = function () { return this.op(0x49); };
-WasmFn.prototype.loop       = function () { return this.op(0x03, 0x40); };
-WasmFn.prototype.end        = function () { return this.op(0x0B); };
-WasmFn.prototype.br_if      = function (d) { return this.op(0x0D, ...wasmLeb(d)); };
-WasmFn.prototype.memory_copy = function () { return this.op(0xFC, 0x0A, 0x00, 0x00); };
-
-WasmFn.prototype.v128_load  = function (offset) { return this.simd(0x00).op(4, ...wasmLeb(offset)); };  // align 16
-WasmFn.prototype.v128_store = function (offset) { return this.simd(0x0B).op(4, ...wasmLeb(offset)); };
-WasmFn.prototype.v128_zero  = function () { this.simd(0x0C); for (let i=0; i < 16; i++) this.code.push(0); return this; };
-WasmFn.prototype.i32x4_extract_lane = function (l) { return this.simd(0x1B).op(l); };
-WasmFn.prototype.i32x4_add   = function () { return this.simd(0xAE); };
-WasmFn.prototype.i32x4_sub   = function () { return this.simd(0xB1); };
-WasmFn.prototype.i32x4_mul   = function () { return this.simd(0xB5); };
-WasmFn.prototype.i32x4_max_s = function () { return this.simd(0xB8); };
-
-//
-// NET_H1_SIZE/4 passes of 16 bytes over a NET_H1_SIZE x i32 vector (so the
-// hidden size must be a multiple of 4); body(fn) emits one pass using local p
-// as the byte offset
-//
-
-WasmFn.prototype.forEach16 = function (p, body) {
-  this.i32_const(0).local_set(p);
-  this.loop();
-  body(this);
-  this.local_get(p).i32_const(16).i32_add().local_tee(p).i32_const(NET_H1_SIZE * 4).i32_lt_u().br_if(0);
-  this.end();
-  return this;
-};
-
-//
-// module assembly
-//
-
-function wasmModule (memPages, fns) {
-
-  const types = [];
-  const typeIdx = [];
-
-  for (const f of fns) {
-    const sig = JSON.stringify([f.fn.params, f.fn.results]);
-    let i = types.indexOf(sig);
-    if (i < 0) { types.push(sig); i = types.length - 1; }
-    typeIdx.push(i);
-  }
-
-  const typeSec = wasmVec(types.map(s => {
-    const [p, r] = JSON.parse(s);
-    return [0x60].concat(wasmVec(p.map(t => [t])), wasmVec(r.map(t => [t])));
-  }));
-
-  const str = s => wasmVec(Array.from(s, c => [c.charCodeAt(0)]));
-
-  const importSec = wasmVec([ str('env').concat(str('mem'), [0x02, 0x00], wasmLeb(memPages)) ]);
-  const funcSec   = wasmVec(typeIdx.map(i => wasmLeb(i)));
-  const exportSec = wasmVec(fns.map((f, i) => str(f.name).concat([0x00], wasmLeb(i))));
-
-  const codeSec = wasmVec(fns.map(f => {
-    const locals = wasmVec(f.fn.locals.map(t => [1, t]));  // one local per entry, simple
-    const body   = locals.concat(f.fn.code, [0x0B]);
-    return wasmLeb(body.length).concat(body);
-  }));
-
-  return new Uint8Array([0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00].concat(
-    wasmSection(1, typeSec),
-    wasmSection(2, importSec),
-    wasmSection(3, funcSec),
-    wasmSection(7, exportSec),
-    wasmSection(10, codeSec)
-  ));
-
-}
-
-//
-// the kernels
-//
-// eval(a1, a2): a1/a2 are byte offsets of the us/them accumulators. Returns
-// sum over h of ow[h]*relu(a1[h])^2 + ow[NET_H1_SIZE+h]*relu(a2[h])^2 in wrapping i32,
-// matching the JS netEval exactly.
-//
-
-function wasmEvalFn () {
-
-  const f = new WasmFn([WASM_I32, WASM_I32], [WASM_I32]);
-  const a1 = 0, a2 = 1;
-  const p = f.local(WASM_I32), e = f.local(WASM_V128), y = f.local(WASM_V128);
-
-  f.v128_zero().local_set(e);
-
-  const term = (a, wOff) => {
-    f.local_get(a).local_get(p).i32_add().v128_load(0).v128_zero().i32x4_max_s().local_tee(y).local_get(y).i32x4_mul();
-    f.local_get(p).v128_load(WASM_OW + wOff).i32x4_mul();
-  };
-
-  f.forEach16(p, () => {
-    f.local_get(e);
-    term(a1, 0);
-    f.i32x4_add();
-    term(a2, NET_H1_SIZE * 4);
-    f.i32x4_add();
-    f.local_set(e);
-  });
-
-  f.local_get(e).i32x4_extract_lane(0);
-  for (let l=1; l < 4; l++) f.local_get(e).i32x4_extract_lane(l).i32_add();
-
-  return f;
-
-}
-
-//
-// update kernels: dst and src are byte offsets of accumulator pairs (us then
-// them); the child's pair is written from the parent's. p* are byte offsets
-// into the us weight table; the them table is at the same offset plus
-// WASM_H2W. adds/subs list which parameters to add/subtract.
-//
-
-function wasmUpdateFn (adds, subs) {
-
-  const n = 2 + adds.length + subs.length;
-  const f = new WasmFn(Array(n).fill(WASM_I32), []);
-  const dst = 0, src = 1;
-  const p = f.local(WASM_I32);
-
-  f.forEach16(p, () => {
-    for (let side=0; side < 2; side++) {
-      const accOff = side * NET_H1_SIZE * 4;
-      const wOff   = side * WASM_H2W;
-      f.local_get(dst).local_get(p).i32_add();                     // store address
-      f.local_get(src).local_get(p).i32_add().v128_load(accOff);   // parent acc
-      for (const i of adds) f.local_get(i).local_get(p).i32_add().v128_load(wOff).i32x4_add();
-      for (const i of subs) f.local_get(i).local_get(p).i32_add().v128_load(wOff).i32x4_sub();
-      f.v128_store(accOff);
-    }
-  });
-
-  return f;
-
-}
-
-function wasmCopyFn () {
-  const f = new WasmFn([WASM_I32, WASM_I32], []);
-  f.local_get(0).local_get(1).i32_const(WASM_ACCSZ).memory_copy();
-  return f;
-}
-
-const wasm_bytes = wasmModule(WASM_PAGES, [
-  {name: 'eval',    fn: wasmEvalFn()},
-  {name: 'add',     fn: wasmUpdateFn([2], [])},           // add(dst, src, p):                + p
-  {name: 'sub',     fn: wasmUpdateFn([], [2])},           // sub(dst, src, p):                - p
-  {name: 'move',    fn: wasmUpdateFn([3], [2])},          // move(dst, src, fr, to):          + to - fr
-  {name: 'capture', fn: wasmUpdateFn([4], [2, 3])},       // capture(dst, src, fr, cap, to):  + to - fr - cap
-  {name: 'castle',  fn: wasmUpdateFn([3, 5], [2, 4])},    // castle(dst, src, kfr, kto, rfr, rto)
-  {name: 'copy',    fn: wasmCopyFn()},
-]);
-
-let wasm_net    = null;
-let wasm_memory = null;
-
-try {
-  const force_js = typeof process !== 'undefined' && process.env.LOZZA_JS === '1';
-  if (!force_js && typeof WebAssembly !== 'undefined' && WebAssembly.validate(wasm_bytes)) {
-    wasm_memory = new WebAssembly.Memory({initial: WASM_PAGES});
-    wasm_net    = new WebAssembly.Instance(new WebAssembly.Module(wasm_bytes), {env: {mem: wasm_memory}}).exports;
-  }
-}
-catch (e) {
-  wasm_net = null;
-}
-
-const wasm_i32 = new Int32Array(wasm_net ? wasm_memory.buffer : new ArrayBuffer(WASM_PAGES * 65536));
-
-// JS kernels with the same interface (byte offsets) for hosts without SIMD
-
-const js_net = {
-
-  eval: function (a1, a2) {
-    const I = wasm_i32, N = NET_H1_SIZE | 0, w = WASM_OW >> 2;
-    let e = 0, p1 = a1 >> 2, p2 = a2 >> 2;
-    for (let h=0; h < N; h++, p1++, p2++) {
-      const x1 = I[p1] | 0, x2 = I[p2] | 0;
-      const y1 = x1 & ~(x1 >> 31), y2 = x2 & ~(x2 >> 31);
-      e = (e + Math.imul(I[w + h], Math.imul(y1, y1)) + Math.imul(I[w + N + h], Math.imul(y2, y2))) | 0;
-    }
-    return e;
-  },
-
-  add: function (dst, src, p) {
-    const I = wasm_i32, N = NET_H1_SIZE | 0, T = WASM_H2W >> 2;
-    let d = dst >> 2, s = src >> 2, p1 = p >> 2;
-    for (let h=0; h < N; h++, d++, s++, p1++) {
-      I[d]     = I[s]     + I[p1];
-      I[d + N] = I[s + N] + I[p1 + T];
-    }
-  },
-
-  sub: function (dst, src, p) {
-    const I = wasm_i32, N = NET_H1_SIZE | 0, T = WASM_H2W >> 2;
-    let d = dst >> 2, s = src >> 2, p1 = p >> 2;
-    for (let h=0; h < N; h++, d++, s++, p1++) {
-      I[d]     = I[s]     - I[p1];
-      I[d + N] = I[s + N] - I[p1 + T];
-    }
-  },
-
-  move: function (dst, src, fr, to) {
-    const I = wasm_i32, N = NET_H1_SIZE | 0, T = WASM_H2W >> 2;
-    let d = dst >> 2, s = src >> 2, p1 = fr >> 2, p2 = to >> 2;
-    for (let h=0; h < N; h++, d++, s++, p1++, p2++) {
-      I[d]     = I[s]     + I[p2]     - I[p1];
-      I[d + N] = I[s + N] + I[p2 + T] - I[p1 + T];
-    }
-  },
-
-  capture: function (dst, src, fr, cap, to) {
-    const I = wasm_i32, N = NET_H1_SIZE | 0, T = WASM_H2W >> 2;
-    let d = dst >> 2, s = src >> 2, p1 = fr >> 2, p2 = cap >> 2, p3 = to >> 2;
-    for (let h=0; h < N; h++, d++, s++, p1++, p2++, p3++) {
-      I[d]     = I[s]     + I[p3]     - I[p1]     - I[p2];
-      I[d + N] = I[s + N] + I[p3 + T] - I[p1 + T] - I[p2 + T];
-    }
-  },
-
-  castle: function (dst, src, kfr, kto, rfr, rto) {
-    const I = wasm_i32, N = NET_H1_SIZE | 0, T = WASM_H2W >> 2;
-    let d = dst >> 2, s = src >> 2, p1 = kfr >> 2, p2 = kto >> 2, p3 = rfr >> 2, p4 = rto >> 2;
-    for (let h=0; h < N; h++, d++, s++, p1++, p2++, p3++, p4++) {
-      I[d]     = I[s]     + I[p2]     - I[p1]     + I[p4]     - I[p3];
-      I[d + N] = I[s + N] + I[p2 + T] - I[p1 + T] + I[p4 + T] - I[p3 + T];
-    }
-  },
-
-  copy: function (dst, src) {
-    wasm_i32.copyWithin(dst >> 2, src >> 2, (src >> 2) + NET_H1_SIZE * 2);
-  },
-
-};
-
-const net_kernels = wasm_net || js_net;
-
-const net_h1_w = wasm_i32.subarray(WASM_H1W >> 2, (WASM_H1W >> 2) + NET_I_SIZE * NET_H1_SIZE);  // us
-const net_h2_w = wasm_i32.subarray(WASM_H2W >> 2, (WASM_H2W >> 2) + NET_I_SIZE * NET_H1_SIZE);  // them
-const net_o_w  = wasm_i32.subarray(WASM_OW >> 2, (WASM_OW >> 2) + NET_H1_SIZE * 2);
+const net_h1_w = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // feature rows, as seen from white's side
+const net_h2_w = new Int32Array(NET_I_SIZE * NET_H1_SIZE);  // the same rows as seen from black's side (colours swapped, squares mirrored)
 const net_h1_b = new Int32Array(NET_H1_SIZE);
+const net_o_w  = new Int32Array(NET_H1_SIZE * 2);
 let   net_o_b  = 0;
 
-// byte offset of a piece's weight row in the us table (the them table is WASM_H2W further on)
-// the net's feature order is white pawn..king then black pawn..king, a1 = 0 like our squares
+// the weight row of a piece on a square; the net's feature order is white pawn..king then
+// black pawn..king, a1 = 0 like our squares
 
-const NET_OFF = new Uint32Array(16 * 64);
+const NET_ROW = new Int32Array(16 * 64);
 
 for (let piece=PAWN; piece <= (KING | BLACK); piece++) {
   if ((piece & 7) < PAWN || (piece & 7) > KING)
     continue;
   const feature = (piece & 7) - 1 + (piece & BLACK ? 6 : 0);
   for (let sq=0; sq < 64; sq++)
-    NET_OFF[piece * 64 + sq] = (feature * 64 + sq) * NET_H1_SIZE * 4;
+    NET_ROW[piece * 64 + sq] = (feature * 64 + sq) * NET_H1_SIZE;
+}
+
+function net_add(acc, row) {
+  for (let h=0; h < NET_H1_SIZE; h++) {
+    acc[h]               += net_h1_w[row + h];
+    acc[NET_H1_SIZE + h] += net_h2_w[row + h];
+  }
+}
+
+function net_sub(acc, row) {
+  for (let h=0; h < NET_H1_SIZE; h++) {
+    acc[h]               -= net_h1_w[row + h];
+    acc[NET_H1_SIZE + h] -= net_h2_w[row + h];
+  }
+}
+
+// squared relu of both accumulators by the output weights, the side to move's half first
+
+function net_eval(acc, stm) {
+  const a = stm === WHITE ? 0 : NET_H1_SIZE;
+  const b = NET_H1_SIZE - a;
+  let e = 0;
+  for (let h=0; h < NET_H1_SIZE; h++) {
+    const x = acc[a + h];
+    const y = acc[b + h];
+    const rx = x > 0 ? x : 0;
+    const ry = y > 0 ? y : 0;
+    e = (e + Math.imul(net_o_w[h], Math.imul(rx, rx)) + Math.imul(net_o_w[NET_H1_SIZE + h], Math.imul(ry, ry))) | 0;
+  }
+  return e;
+}
+
+// an empty board's accumulators are the biases
+
+function net_reset(node) {
+  node.acc.set(net_h1_b, 0);
+  node.acc.set(net_h1_b, NET_H1_SIZE);
 }
 
 function get_weights_buffer() {
@@ -638,7 +377,7 @@ function get_weights_buffer() {
 }
 
 // the file is bullet's: input weights by feature, hidden biases, output weights (us then them), output bias
-// the them table holds each row under the colour-flipped feature (piece colour swapped, square mirrored)
+// the black-side table holds each row under the colour-flipped feature (piece colour swapped, square mirrored)
 
 function net_load() {
 
@@ -649,8 +388,8 @@ function net_load() {
     const flipped = ((((i >>> 6) + 6) % 12) << 6) | ((i & 63) ^ 56);
     const h = i * NET_H1_SIZE;
     for (let j=0; j < NET_H1_SIZE; j++) {
-      net_h1_w[h + j]                        = dv[h + j];
-      net_h2_w[flipped * NET_H1_SIZE + j]    = dv[h + j];
+      net_h1_w[h + j]                     = dv[h + j];
+      net_h2_w[flipped * NET_H1_SIZE + j] = dv[h + j];
     }
   }
 
@@ -672,20 +411,13 @@ function net_load() {
 
 net_load();
 
-// an empty board's accumulators are the biases
-
-function net_reset(node) {
-  wasm_i32.set(net_h1_b, node.acc >> 2);
-  wasm_i32.set(net_h1_b, (node.acc >> 2) + NET_H1_SIZE);
-}
-
 
 // pos and board share one buffer, so copying pos copies the board too
 
-function new_node(_, ply) {
+function new_node() {
   const buf = new ArrayBuffer(P_SIZE * 4);
   return {
-    acc:       WASM_NODES + ply * WASM_ACCSZ,
+    acc:       new Int32Array(NET_H1_SIZE * 2),
     pos:       new Int32Array(buf),
     board:     new Uint8Array(buf, P_BOARD * 4, 64),
     moves:     new Uint32Array(MAX_MOVES),
@@ -1682,7 +1414,7 @@ function make_move(ply, move) {
 
   pos.set(nodes[ply].pos);
 
-  net_kernels.copy(node.acc, nodes[ply].acc);
+  node.acc.set(nodes[ply].acc);
 
   const stm  = pos[P_STM];
   const stmi = stm >>> 3;
@@ -1748,7 +1480,7 @@ function make_null(ply) {
 
   pos.set(nodes[ply].pos);
 
-  net_kernels.copy(nodes[ply + 1].acc, nodes[ply].acc);
+  nodes[ply + 1].acc.set(nodes[ply].acc);
 
   nodes[ply + 1].cont = -1;
 
@@ -2398,7 +2130,7 @@ function imbalance(pos) {
 
 }
 
-// king attack value per piece attacking the enemy king zone (in proportion to lozza 2.5's)
+// king attack value per piece attacking the enemy king zone (based on fruit 2.1's king attack units)
 
 const KS_UNIT = [0, 0, 3, 1, 5, 5, 0];
 
@@ -2433,7 +2165,9 @@ let trace_class = 0;
 // from the side to move's point of view
 
 // the endgame scale class, from the side ahead in the endgame part (counts from the
-// material key)
+// material key); the idea of stockfish's endgame scale factors and fruit 2.1's draw
+// multipliers, our own classes and tuned scales, the classes distilled from lozza 11's net
+// (its neurons for drawish endings)
 
 function scale_class(pos, eg) {
 
@@ -2508,10 +2242,7 @@ function evaluate(ply) {
   if (ec_lo[ec] === pos[P_LO] && ec_hi[ec] === pos[P_HI])
     return ec_eval[ec];
 
-  const us   = node.acc;
-  const them = us + NET_H1_SIZE * 4;
-
-  let e = (pos[P_STM] === WHITE ? net_kernels.eval(us, them) : net_kernels.eval(them, us)) | 0;
+  let e = net_eval(node.acc, pos[P_STM]) | 0;
 
   e = (e / NET_QA) | 0;
   e = (e + net_o_b) | 0;
@@ -2569,7 +2300,9 @@ function evaluate_hce(ply) {
   const bpa_lo = ((bp_lo & ~FILE_A) >>> 9) | ((bp_hi & ~FILE_A) << 23) | ((bp_lo & ~FILE_H) >>> 7) | ((bp_hi & ~FILE_H) << 25);
   const bpa_hi = ((bp_hi & ~FILE_A) >>> 9) | ((bp_hi & ~FILE_H) >>> 7);
 
-  // pawn structure and passed pawns, ranks and files from the pawn's side
+  // pawn structure and passed pawns, ranks and files from the pawn's side: isolated, backward,
+  // doubled, and connected pawns as supported and phalanx (the idea of stockfish's connected
+  // pawns), passers by rank with their free path and king distances
 
   for (let c=0; c < 2; c++) {
 
@@ -2723,6 +2456,7 @@ function evaluate_hce(ply) {
       open_w = open;
 
     // a king on a flank (files a-d, c-f or e-h by its file) with no pawns of either colour
+    // (the idea of stockfish's pawnless flank, distilled from lozza 11's net)
 
     const flank = 0x0f0f0f0f << (kf <= 2 ? 0 : kf <= 4 ? 2 : 4);
 
@@ -2741,12 +2475,15 @@ function evaluate_hce(ply) {
   }
 
   // safe mobility: squares a knight, bishop, rook or queen attacks that hold no own piece
-  // and aren't attacked by an enemy pawn, scored by count
+  // and aren't attacked by an enemy pawn, scored by count (the idea of stockfish's mobility
+  // area)
   //
-  // king safety, from the net's residual and lozza 2.5: pieces attacking the enemy king zone
-  // give an attack value weighted by a tuned table indexed by the number of attackers (the
-  // non-linearity), attackers count more against open files, and own king exposure counts
-  // against us, more so while the enemy has a queen
+  // king safety, based on fruit 2.1's king attack (via lozza 2.5): pieces attacking the enemy
+  // king zone give an attack value weighted by a tuned table indexed by the number of attackers
+  // (the non-linearity), attackers count more against open files, and own king exposure counts
+  // against us, more so while the enemy has a queen. the products (attackers x open files,
+  // exposure x enemy queen) and the king on an open file were distilled from lozza 11's net:
+  // its pairwise discovery ranked them top of what our eval lacked
 
   for (let c=0; c < 2; c++) {
 
@@ -2847,6 +2584,7 @@ function evaluate_hce(ply) {
         }
 
         if (ptype === ROOK) {
+          // a rook on a file with no own pawn, open or half open (distilled from lozza 11's net)
           const file = FILE_A << (sq & 7);
           if (((file & own_p_lo) | (file & own_p_hi)) === 0) {
             const k = ((file & pawns_lo) | (file & pawns_hi)) === 0 ? 0 : 1;
@@ -2858,6 +2596,8 @@ function evaluate_hce(ply) {
         }
         else if (ptype <= BISHOP) {
 
+          // a minor behind a pawn (the idea of stockfish's minor behind pawn, distilled from
+          // lozza 11's net)
           const ahead = c ? sq - 8 : sq + 8;
           if (ahead >= 0 && ahead < 64 && (b[ahead] & 7) === PAWN) {
             mob_mg += MINOR_BEHIND_MG[0];
@@ -2902,13 +2642,15 @@ function evaluate_hce(ply) {
 
   // material imbalance, quadratic in piece counts: for each pair of piece types a weight on
   // our count x our count and on our count x their count (the idea of stockfish's material
-  // imbalance, our own weights); a type with itself counts pairs, n (n - 1) / 2, which is 0
+  // imbalance, our own weights; the need for it was distilled from lozza 11's net, which valued
+  // queen imbalances two pawns differently from us); a type with itself counts pairs, n (n - 1) / 2, which is 0
   // for one piece so it can't trade value with the piece value itself (and bishop x bishop
   // is the bishop pair); the result (imb_mg, imb_eg) is in sixteenths of a centipawn
 
   imbalance(pos);
 
-  // threats: our pawns attacking their pieces, our minors attacking their rooks and queens,
+  // threats (the idea of stockfish's threats, distilled from lozza 11's net): our pawns
+  // attacking their pieces, our minors attacking their rooks and queens,
   // and their pieces we attack that they don't defend (hanging)
 
   for (let c=0; c < 2; c++) {
@@ -2928,7 +2670,8 @@ function evaluate_hce(ply) {
     const hang  = popcount(ks_att[c * 2] & pcs_lo & ~ks_att[e * 2], ks_att[c * 2 + 1] & pcs_hi & ~ks_att[e * 2 + 1]);
 
     // safe pawn pushes: one square forward to an empty square that no enemy pawn attacks and
-    // that we attack or they don't; then the pieces the pushed pawns would attack
+    // that we attack or they don't; then the pieces the pushed pawns would attack (the idea of
+    // stockfish's threats by safe pawn pushes, distilled from lozza 11's net)
 
     let s_lo, s_hi;
 
@@ -2980,6 +2723,7 @@ function evaluate_hce(ply) {
 
   // safe queen checks: squares checking the enemy king that our queen attacks, not holding
   // our own pieces and not attacked by them; worth more when it's our move to give them
+  // (distilled from lozza 11's net: a safe check counts when you can give it)
 
   for (let c=0; c < 2; c++) {
     const e  = c ^ 1;
@@ -2991,7 +2735,8 @@ function evaluate_hce(ply) {
 
     // queen contact: squares next to their king our queen attacks, not holding our pieces,
     // defended by nothing but their king and attacked by another of our pieces too; and how
-    // close our queens are to their king
+    // close our queens are to their king (distilled from lozza 11's net: read off the neurons
+    // our other terms could not explain)
 
     const q_lo = bb[(QUEEN | (c << 3)) * 2];
     const q_hi = bb[(QUEEN | (c << 3)) * 2 + 1];
@@ -3872,6 +3617,8 @@ function perft(ply, depth) {
 
 const BENCH_DEPTH = 10;
 
+// the positions are ethereal's bench set
+
 const BENCH_FENS = [
   START_FEN,
   'r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq a6 0 14',
@@ -4053,7 +3800,7 @@ async function uci_exec(line) {
           }
           make_move(0, move);
           nodes[0].pos.set(nodes[1].pos);
-          net_kernels.copy(nodes[0].acc, nodes[1].acc);
+          nodes[0].acc.set(nodes[1].acc);
           nodes[0].cont = nodes[1].cont;
           rep_root = nodes[0].pos[P_HMC] === 0 ? 0 : rep_root + 1;
           rep_set(rep_root, nodes[0].pos);

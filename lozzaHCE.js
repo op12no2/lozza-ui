@@ -1990,7 +1990,7 @@ function imbalance(pos) {
 
 }
 
-// king attack value per piece attacking the enemy king zone (in proportion to lozza 2.5's)
+// king attack value per piece attacking the enemy king zone (based on fruit 2.1's king attack units)
 
 const KS_UNIT = [0, 0, 3, 1, 5, 5, 0];
 
@@ -2025,7 +2025,9 @@ let trace_class = 0;
 // from the side to move's point of view
 
 // the endgame scale class, from the side ahead in the endgame part (counts from the
-// material key)
+// material key); the idea of stockfish's endgame scale factors and fruit 2.1's draw
+// multipliers, our own classes and tuned scales, the classes distilled from lozza 11's net
+// (its neurons for drawish endings)
 
 function scale_class(pos, eg) {
 
@@ -2131,7 +2133,9 @@ function evaluate(ply) {
   const bpa_lo = ((bp_lo & ~FILE_A) >>> 9) | ((bp_hi & ~FILE_A) << 23) | ((bp_lo & ~FILE_H) >>> 7) | ((bp_hi & ~FILE_H) << 25);
   const bpa_hi = ((bp_hi & ~FILE_A) >>> 9) | ((bp_hi & ~FILE_H) >>> 7);
 
-  // pawn structure and passed pawns, ranks and files from the pawn's side
+  // pawn structure and passed pawns, ranks and files from the pawn's side: isolated, backward,
+  // doubled, and connected pawns as supported and phalanx (the idea of stockfish's connected
+  // pawns), passers by rank with their free path and king distances
 
   for (let c=0; c < 2; c++) {
 
@@ -2285,6 +2289,7 @@ function evaluate(ply) {
       open_w = open;
 
     // a king on a flank (files a-d, c-f or e-h by its file) with no pawns of either colour
+    // (the idea of stockfish's pawnless flank, distilled from lozza 11's net)
 
     const flank = 0x0f0f0f0f << (kf <= 2 ? 0 : kf <= 4 ? 2 : 4);
 
@@ -2303,12 +2308,15 @@ function evaluate(ply) {
   }
 
   // safe mobility: squares a knight, bishop, rook or queen attacks that hold no own piece
-  // and aren't attacked by an enemy pawn, scored by count
+  // and aren't attacked by an enemy pawn, scored by count (the idea of stockfish's mobility
+  // area)
   //
-  // king safety, from the net's residual and lozza 2.5: pieces attacking the enemy king zone
-  // give an attack value weighted by a tuned table indexed by the number of attackers (the
-  // non-linearity), attackers count more against open files, and own king exposure counts
-  // against us, more so while the enemy has a queen
+  // king safety, based on fruit 2.1's king attack (via lozza 2.5): pieces attacking the enemy
+  // king zone give an attack value weighted by a tuned table indexed by the number of attackers
+  // (the non-linearity), attackers count more against open files, and own king exposure counts
+  // against us, more so while the enemy has a queen. the products (attackers x open files,
+  // exposure x enemy queen) and the king on an open file were distilled from lozza 11's net:
+  // its pairwise discovery ranked them top of what our eval lacked
 
   for (let c=0; c < 2; c++) {
 
@@ -2409,6 +2417,7 @@ function evaluate(ply) {
         }
 
         if (ptype === ROOK) {
+          // a rook on a file with no own pawn, open or half open (distilled from lozza 11's net)
           const file = FILE_A << (sq & 7);
           if (((file & own_p_lo) | (file & own_p_hi)) === 0) {
             const k = ((file & pawns_lo) | (file & pawns_hi)) === 0 ? 0 : 1;
@@ -2420,6 +2429,8 @@ function evaluate(ply) {
         }
         else if (ptype <= BISHOP) {
 
+          // a minor behind a pawn (the idea of stockfish's minor behind pawn, distilled from
+          // lozza 11's net)
           const ahead = c ? sq - 8 : sq + 8;
           if (ahead >= 0 && ahead < 64 && (b[ahead] & 7) === PAWN) {
             mob_mg += MINOR_BEHIND_MG[0];
@@ -2464,13 +2475,15 @@ function evaluate(ply) {
 
   // material imbalance, quadratic in piece counts: for each pair of piece types a weight on
   // our count x our count and on our count x their count (the idea of stockfish's material
-  // imbalance, our own weights); a type with itself counts pairs, n (n - 1) / 2, which is 0
+  // imbalance, our own weights; the need for it was distilled from lozza 11's net, which valued
+  // queen imbalances two pawns differently from us); a type with itself counts pairs, n (n - 1) / 2, which is 0
   // for one piece so it can't trade value with the piece value itself (and bishop x bishop
   // is the bishop pair); the result (imb_mg, imb_eg) is in sixteenths of a centipawn
 
   imbalance(pos);
 
-  // threats: our pawns attacking their pieces, our minors attacking their rooks and queens,
+  // threats (the idea of stockfish's threats, distilled from lozza 11's net): our pawns
+  // attacking their pieces, our minors attacking their rooks and queens,
   // and their pieces we attack that they don't defend (hanging)
 
   for (let c=0; c < 2; c++) {
@@ -2490,7 +2503,8 @@ function evaluate(ply) {
     const hang  = popcount(ks_att[c * 2] & pcs_lo & ~ks_att[e * 2], ks_att[c * 2 + 1] & pcs_hi & ~ks_att[e * 2 + 1]);
 
     // safe pawn pushes: one square forward to an empty square that no enemy pawn attacks and
-    // that we attack or they don't; then the pieces the pushed pawns would attack
+    // that we attack or they don't; then the pieces the pushed pawns would attack (the idea of
+    // stockfish's threats by safe pawn pushes, distilled from lozza 11's net)
 
     let s_lo, s_hi;
 
@@ -2542,6 +2556,7 @@ function evaluate(ply) {
 
   // safe queen checks: squares checking the enemy king that our queen attacks, not holding
   // our own pieces and not attacked by them; worth more when it's our move to give them
+  // (distilled from lozza 11's net: a safe check counts when you can give it)
 
   for (let c=0; c < 2; c++) {
     const e  = c ^ 1;
@@ -2553,7 +2568,8 @@ function evaluate(ply) {
 
     // queen contact: squares next to their king our queen attacks, not holding our pieces,
     // defended by nothing but their king and attacked by another of our pieces too; and how
-    // close our queens are to their king
+    // close our queens are to their king (distilled from lozza 11's net: read off the neurons
+    // our other terms could not explain)
 
     const q_lo = bb[(QUEEN | (c << 3)) * 2];
     const q_hi = bb[(QUEEN | (c << 3)) * 2 + 1];
@@ -3433,6 +3449,8 @@ function perft(ply, depth) {
 // (identical counts mean a change didn't alter it), the format is what test frameworks parse
 
 const BENCH_DEPTH = 10;
+
+// the positions are ethereal's bench set
 
 const BENCH_FENS = [
   START_FEN,
