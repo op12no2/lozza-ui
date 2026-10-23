@@ -1371,6 +1371,23 @@ let stop_nodes   = Infinity;
 let limits_on    = false;
 let root_move    = 0;
 
+// MultiPV (the MultiPV uci option, 1-10): the root is searched once per line per iteration, each
+// time with the first moves of the lines already found excluded, so the lines are the best
+// moves in order; the search skips excluded root moves and stores nothing in the tt for a
+// root with exclusions, as it does for a singular verification search
+
+let multi_pv = 1;
+
+const root_excluded   = new Uint32Array(10);
+let   root_excluded_n = 0;
+
+function root_is_excluded(move) {
+  for (let i=0; i < root_excluded_n; i++)
+    if (root_excluded[i] === move)
+      return true;
+  return false;
+}
+
 // contempt (the Contempt uci option, cp): a draw is worth -contempt to the side the engine
 // plays (the side to move at the root) and +contempt to the other
 
@@ -1659,6 +1676,9 @@ function search(ply, depth, alpha, beta) {
     if (move === excluded)
       continue;
 
+    if (ply === 0 && root_excluded_n !== 0 && root_is_excluded(move))
+      continue;
+
     // late move pruning - at the lowest depths, once enough quiets have been tried, skip the rest
 
     if (!pv_node && !in_check && depth <= LMP_DEPTH && num_played > LMP_MOVES * depth &&
@@ -1744,9 +1764,10 @@ function search(ply, depth, alpha, beta) {
   if (legal === 0)
     best = excluded !== 0 ? alpha : in_check ? -MATE + ply : draw_score(pos);
 
-  // a verification search with a move excluded must not store its partial result
+  // a verification search with a move excluded must not store its partial result, nor a root
+  // searching a later MultiPV line
 
-  if (excluded !== 0)
+  if (excluded !== 0 || (ply === 0 && root_excluded_n !== 0))
     return best;
 
   // on a fail low there is no best move, so keep the one we had
@@ -1798,66 +1819,117 @@ async function go(max_depth, max_nodes, soft_ms, hard_ms) {
   for (let i=0; i < cont_history.length; i++)
     cont_history[i] >>= 1;
 
-  let score = 0;
+  // the lines: a score, a first move and a pv each; multi is the lines asked for, capped by the
+  // legal moves
+
+  const multi      = Math.min(multi_pv, Math.max(1, legal_moves(0)));
+  const line_score = new Int32Array(multi);
+  const line_move  = new Uint32Array(multi);
+  const line_pv    = [];
+  const line_len   = new Int32Array(multi);
+
+  for (let k=0; k < multi; k++)
+    line_pv.push(new Uint32Array(MAX_PLY));
 
   for (let depth=1; depth <= max_depth; depth++) {
 
-    let alpha = -INF;
-    let beta  = INF;
-    let delta = ASP_DELTA;
+    let done = 0;
 
-    if (depth >= ASP_DEPTH) {
-      alpha = Math.max(score - delta, -INF);
-      beta  = Math.min(score + delta, INF);
-    }
+    for (let k=0; k < multi; k++) {
 
-    while (true) {
+      // the lines found so far at this depth are excluded; the line's own first move from the
+      // last depth is tried first
 
-      score = search(0, depth, alpha, beta);
+      root_excluded_n = k;
+      for (let i=0; i < k; i++)
+        root_excluded[i] = line_move[i];
 
-      if (stop_search)
-        break;
+      root_move = line_move[k];
 
-      if (score <= alpha)
+      let score = line_score[k];
+      let alpha = -INF;
+      let beta  = INF;
+      let delta = ASP_DELTA;
+
+      if (depth >= ASP_DEPTH) {
         alpha = Math.max(score - delta, -INF);
-      else if (score >= beta)
-        beta = Math.min(score + delta, INF);
-      else
-        break;
-
-      delta *= 2;
-
-      if (delta > ASP_MAX) {
-        alpha = -INF;
-        beta  = INF;
+        beta  = Math.min(score + delta, INF);
       }
 
-      await uci_yield();
+      while (true) {
+
+        score = search(0, depth, alpha, beta);
+
+        if (stop_search)
+          break;
+
+        if (score <= alpha)
+          alpha = Math.max(score - delta, -INF);
+        else if (score >= beta)
+          beta = Math.min(score + delta, INF);
+        else
+          break;
+
+        delta *= 2;
+
+        if (delta > ASP_MAX) {
+          alpha = -INF;
+          beta  = INF;
+        }
+
+        await uci_yield();
+
+        if (stop_search)
+          break;
+      }
 
       if (stop_search)
         break;
+
+      const root = nodes[0];
+
+      line_score[k] = score;
+      line_move[k]  = root.pv_len ? root.pv[0] : 0;
+      line_len[k]   = root.pv_len;
+      line_pv[k].set(root.pv.subarray(0, root.pv_len));
+
+      done++;
     }
+
+    root_excluded_n = 0;
 
     if (stop_search)
       break;
 
+    // the lines in score order (the exclusions make line k the best of the rest, so they are
+    // already in order; sorting guards the ties), the first is the move to play
+
+    const order = [];
+    for (let k=0; k < multi; k++)
+      order.push(k);
+    order.sort((a, b) => line_score[b] - line_score[a]);
+
+    root_move = line_move[order[0]];
+
     const elapsed = performance.now() - start;
-    const root    = nodes[0];
 
-    root_move = root.pv_len ? root.pv[0] : 0;
+    for (let n=0; n < multi; n++) {
+      const k = order[n];
+      let pv = '';
+      for (let i=0; i < line_len[k]; i++)
+        pv += ' ' + move_to_uci(line_pv[k][i]);
+      uci_send('info depth ' + depth +
+               ' seldepth ' + sel_depth +
+               (multi > 1 ? ' multipv ' + (n + 1) : '') +
+               ' score ' + score_to_uci(line_score[k]) +
+               ' nodes ' + search_nodes +
+               ' time ' + Math.round(elapsed) +
+               ' nps ' + Math.round(search_nodes * 1000 / (elapsed || 1)) +
+               ' hashfull ' + tt_hashfull() +
+               ' pv' + pv);
+    }
 
-    let pv = '';
-    for (let i=0; i < root.pv_len; i++)
-      pv += ' ' + move_to_uci(root.pv[i]);
-
-    uci_send('info depth ' + depth +
-             ' seldepth ' + sel_depth +
-             ' score ' + score_to_uci(score) +
-             ' nodes ' + search_nodes +
-             ' time ' + Math.round(elapsed) +
-             ' nps ' + Math.round(search_nodes * 1000 / (elapsed || 1)) +
-             ' hashfull ' + tt_hashfull() +
-             ' pv' + pv);
+    const score = line_score[order[0]];
 
     if (root_move === 0 || elapsed >= soft_ms || search_nodes >= max_nodes)
       break;
@@ -1874,6 +1946,8 @@ async function go(max_depth, max_nodes, soft_ms, hard_ms) {
     if (stop_search)
       break;
   }
+
+  root_excluded_n = 0;
 
   return root_move;
 
@@ -2049,6 +2123,7 @@ async function uci_exec(line) {
       uci_send('id author Colin Jenkins');
       uci_send('option name Hash type spin default 16 min 1 max 1024');
       uci_send('option name Contempt type spin default 0 min -200 max 200');
+      uci_send('option name MultiPV type spin default 1 min 1 max 10');
       uci_send('uciok');
       break;
 
@@ -2069,6 +2144,9 @@ async function uci_exec(line) {
           break;
         case 'contempt':
           contempt = Math.max(-200, Math.min(200, parseInt(tokens[4]) || 0));
+          break;
+        case 'multipv':
+          multi_pv = Math.max(1, Math.min(10, parseInt(tokens[4]) || 1));
           break;
       }
       break;

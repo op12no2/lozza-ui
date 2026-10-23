@@ -14,6 +14,7 @@ Commands sent during a search are queued: `stop` ends the search at the next pau
 | `isready` | | `readyok`, also while searching |
 | `setoption name Hash value <mb>` | `o` | transposition table size, 1 to 1024 MB (default 16) |
 | `setoption name Contempt value <cp>` | `o` | draw score: a draw counts -cp for the side Lozza plays, -200 to 200 (default 0) |
+| `setoption name MultiPV value <n>` | `o` | the best n moves, 1 to 10 (default 1): each iteration prints one `info` line per line, tagged `multipv 1..n`, best first |
 | `ucinewgame` | `u` | clears the transposition table |
 | `position startpos [moves ...]` | `p` | the start position, then any moves in UCI notation; `p` alone is the start position |
 | `position fen <fen> [moves ...]` | `p fen ...` | a position from a FEN, then any moves |
