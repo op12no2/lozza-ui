@@ -100,8 +100,14 @@ function clear_pos(pos) {
   pos.pk_hi    = 0;
 }
 
-// bit position of each piece code's count in the material key: 4 bits for pawns, 3 for the
-// rest (white then black), 32 bits in all
+// the material key, pos.mat: how many of each piece each side has, packed into one int (4 bits
+// per side for pawns, 3 for each other type, 32 bits in all) and kept up to date by put_piece
+// and remove_piece. anything that only needs the counts reads them from the key instead of
+// scanning the board: the material imbalance (which also caches its result by the key, so a
+// material balance is evaluated once and looked up after), the endgame scale class, the
+// material draw test and the bishop pair. the idea is the material hash key of
+// https://www.chessprogramming.org/Material_Hash_Table, counts in the key and the lookup by it.
+// MAT_SHIFT is the bit position of each piece code's count, MAT_INC what adding one piece adds
 
 const MAT_SHIFT = new Int8Array([0, 0, 8, 11, 14, 17, 0, 0, 0, 4, 20, 23, 26, 29, 0, 0]);
 const MAT_INC   = new Int32Array(16);

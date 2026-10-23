@@ -40,7 +40,7 @@
 <pre id="ucioutput"></pre>
 
 <script>
-const engine = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaMat|lozzaBeal
+const engine = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaMini|lozzaMat|lozzaBeal
 const lozza = new Worker('../' + engine + '.js');
 const ucioutput = document.getElementById('ucioutput');
 
