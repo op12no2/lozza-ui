@@ -4,15 +4,14 @@ Examples of using the [Lozza](https://github.com/op12no2/lozza) chess engine in 
 
 The engine files here are the current development builds, so they change from time to time.
 
-| File | Evaluation | |
-|---|---|---|
-| lozzaNNUE.js | Neural network | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaNNUE) |
-| lozzaHCE.js | Hand coded evaluation | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaHCE) |
-| lozzaMini.js | A small neural network, written out as boards you can read | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMini) |
-| lozzaMat.js | Material only, Larry Kaufman's piece values | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMat) |
-| lozzaBeal.js | Random (Beal effect) | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaBeal) |
+| File | Evaluation | ~Elo | Size | |
+|---|---|---|---|---|
+| lozzaNNUE.js | [Neural network](https://chessprogramming.org/NNUE)                                | 3100 | 370 kb | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaNNUE) |
+| lozzaMini.js | Mini [neural network](https://chessprogramming.org/NNUE) as readable boards        | 2800 | 195 kb | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMini) |
+| lozzaHCE.js  | [Hand coded evaluation](https://chessprogramming.org/Evaluation)                   | 2750 | 97 kb  | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaHCE)  |
+| lozzaMat.js  | [Material only](https://www.danheisman.com/evaluation-of-material-imbalances.html) | 2050 | 62 kb  | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaMat)  |
+| lozzaBeal.js | [Random (Beal effect)](https://chessprogramming.org/Search_with_Random_Leaf_Values)| 1200 | 58 kb  | [Try it](https://op12no2.github.io/lozza-ui/index.html?engine=lozzaBeal) |
 
-[index.html](https://op12no2.github.io/lozza-ui/index.html) lists the examples (hello world, stop, a promise wrapper, multi PV analysis and a game against Lozza) for the engine given by `?engine=`, default lozzaHCE.
 
 [Compare search speed](https://op12no2.github.io/lozza-ui/examples/nps.html) searches one position with every build and tabulates depth, nodes and nodes per second.
 
