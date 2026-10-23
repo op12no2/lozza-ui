@@ -21,7 +21,7 @@
 
 <h1>Lozza examples</h1>
 
-<p>Engine: <code id="engine"></code> (<span id="switch"></span>)</p>
+<p>Engine: <code id="engine"></code> &nbsp; or try: <span id="switch"></span></p>
 
 <ul id="examples"></ul>
 
@@ -46,7 +46,7 @@ document.getElementById('engine').textContent = engine + '.js';
 document.getElementById('switch').innerHTML = builds
   .filter(b => b !== engine)
   .map(b => '<a href="index.html?engine=' + b + '">' + b + '</a>')
-  .join(' ');
+  .join(' | ');
 
 document.getElementById('examples').innerHTML = examples
   .map(e => '<li><a href="examples/' + e[0] + '?engine=' + engine + '">' + e[1] + '</a> - ' + e[2] + '</li>')
