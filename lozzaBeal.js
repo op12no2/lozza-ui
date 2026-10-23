@@ -47,19 +47,19 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 function new_pos() {
   return {
-    board:  new Uint8Array(64),
-    stm:    0,
-    rights: 0,
-    ep:     0,
-    hmc:    0,
-    lo:     0,
+    board:  new Uint8Array(64),  // a piece code per square, a1 = 0, 0 for empty
+    stm:    0,                   // the side to move, WHITE or BLACK
+    rights: 0,                   // the castling rights, the WHITE/BLACK_RIGHTS_KING/QUEEN bits
+    ep:     0,                   // the ep target square, 0 for none
+    hmc:    0,                   // the halfmove clock, for the 50 move rule
+    lo:     0,                   // the zobrist hash, as two int32 halves
     hi:     0,
-    mg:     0,
+    mg:     0,                   // the running piece square sums, white positive
     eg:     0,
-    phase:  0,
-    kings:  new Uint8Array(2),
-    mat:    0,
-    pk_lo:  0,
+    phase:  0,                   // the running phase, 0 (no pieces) to 24 and beyond
+    kings:  new Uint8Array(2),   // the king squares by colour index
+    mat:    0,                   // the material key, piece counts packed as MAT_SHIFT says
+    pk_lo:  0,                   // the pawn key, the zobrist of the pawns alone (correction history)
     pk_hi:  0
   };
 }
@@ -315,20 +315,18 @@ const MAX_PLY   = 128;
 function new_node() {
   const pos = new_pos();
   return {
-    pos:       pos,
-    board:     pos.board,
-    moves:     new Uint32Array(MAX_MOVES),
-    played:    new Uint32Array(MAX_MOVES),
-    num_moves: 0,
-    ranks:     new Int32Array(MAX_MOVES),
-    next_move: 0,
-    in_check:  0,
-    excluded:  0,
-    tt_move:   0,
-    stage:     0,
-    killer:    0,
-    cont:      -1,
-    pv:        new Uint32Array(MAX_PLY),
+    pos:       pos,                         // the position at this ply
+    board:     pos.board,                   // its board, for short
+    moves:     new Uint32Array(MAX_MOVES),  // the moves generated here, ranked by init_moves
+    ranks:     new Int32Array(MAX_MOVES),   // their ranks, picked best first by get_move
+    num_moves: 0,                           // how many
+    next_move: 0,                           // how many get_move has handed out
+    played:    new Uint32Array(MAX_MOVES),  // the quiet moves searched here, for the history malus on a cutoff
+    in_check:  0,                           // is the side to move in check (set by gen_moves)
+    excluded:  0,                           // the move left out of a singular verification search, or 0
+    killer:    0,                           // the killer move, a quiet that cut off here before
+    cont:      -1,                          // the move that led here as piece * 64 + dst, for continuation history (-1 at the root or after a null move)
+    pv:        new Uint32Array(MAX_PLY),    // the principal variation from here
     pv_len:    0
   };
 }
@@ -1598,9 +1596,13 @@ function search(ply, depth, alpha, beta) {
 
   const raw = in_check ? -INF : ti >= 0 && tt_evals[ti] !== TT_NO_EVAL ? tt_evals[ti] : evaluate(ply);
 
-  // singular extension - if no other move comes near the tt move's score it is extended;
-  // the verification search runs at this same ply, before this node generates its moves,
-  // and if it beats beta anyway (multi-cut) the node is done
+  // singular extension: when the tt move looks much better than everything else, it is
+  // probably the only move, and the only move deserves a deeper look. the test is a reduced
+  // search of this node with the tt move excluded against a bar some way below the tt score:
+  // if nothing reaches the bar the tt move is singular and gets one more ply. if the others
+  // reach the bar and the bar is already above beta, several moves beat beta and the node
+  // can be cut right away (multi-cut). the verification search runs at this same ply, before
+  // this node generates its moves
 
   let extension = 0;
 
