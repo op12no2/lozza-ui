@@ -41,7 +41,7 @@
 
 <script>
 const engine = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaMini|lozzaMat|lozzaBeal
-const lozza = new Worker('../' + engine + '.js');
+const lozza = new Worker('../lozza/' + engine + '.js');
 const ucioutput = document.getElementById('ucioutput');
 
 document.getElementById('engine').textContent = engine + '.js';

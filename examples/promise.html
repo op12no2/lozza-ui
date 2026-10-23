@@ -177,7 +177,7 @@ async function demo () {
 
   const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaMini|lozzaMat|lozzaBeal
   document.getElementById('engine').textContent = engineFile + '.js';
-  const engine = createEngine('../' + engineFile + '.js');
+  const engine = createEngine('../lozza/' + engineFile + '.js');
 
   // uncomment to see the raw UCI traffic as well
   // engine.onLine = function (line) { show('  < ' + line); };

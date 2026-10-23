@@ -197,7 +197,7 @@ const statusEl = document.getElementById('status');
 
 const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaMini|lozzaMat|lozzaBeal
 document.getElementById('engine').textContent = engineFile + '.js';
-const engine = createEngine('../' + engineFile + '.js');
+const engine = createEngine('../lozza/' + engineFile + '.js');
 
 let rows      = [];    // rows[multipv-1] = latest parsed info for that line
 let flip      = 1;     // -1 when black is to move, to show scores from White's view

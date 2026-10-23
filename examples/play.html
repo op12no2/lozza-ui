@@ -178,7 +178,7 @@ function words (line) {
 
 const engineFile = new URLSearchParams(location.search).get('engine') || 'lozzaHCE'; // which build: ?engine=lozzaHCE|lozzaNNUE|lozzaMini|lozzaMat|lozzaBeal
 document.getElementById('engine').textContent = engineFile + '.js';
-const engine = createEngine('../' + engineFile + '.js');
+const engine = createEngine('../lozza/' + engineFile + '.js');
 
 const PIECES = {k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟'};
 

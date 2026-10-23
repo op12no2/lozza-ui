@@ -64,7 +64,7 @@ function measure (build) {
 
   return new Promise(resolve => {
 
-    const worker = new Worker('../' + build + '.js');
+    const worker = new Worker('../lozza/' + build + '.js');
     let last = null;
 
     worker.onmessage = function (e) {
